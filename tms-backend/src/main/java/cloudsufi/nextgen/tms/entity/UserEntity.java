@@ -1,4 +1,5 @@
 package cloudsufi.nextgen.tms.entity;
+import cloudsufi.nextgen.tms.enums.Role;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -71,10 +72,5 @@ public class UserEntity {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    /** Enumeration of valid user roles within the system. */
-    public enum Role {
-        IT, ENGINEERING, HR, MANAGER, LEAD, ARCHITECT, DEVOPS, DEVSECOPS, INTERN
-    }
 
 }
