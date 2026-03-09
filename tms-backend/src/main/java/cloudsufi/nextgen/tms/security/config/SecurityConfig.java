@@ -10,6 +10,20 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+/*
+ * SecurityConfig
+ *
+ * This class configures Spring Security for the TMS application.
+ * It defines the security filter chain, authentication manager,
+ * password encoder, and integrates the JWT authentication filter.
+ *
+ * The configuration ensures that the application follows
+ * stateless authentication using JWT tokens.
+ * disabled default spring security login form since authentication will be handled using JWT
+ *
+ * Author: Priyanshu Gupta
+ */
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -20,26 +34,20 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
 
         http
-                //disable CSRF coz this application exposes REST APIs
+
                 .csrf(httpSecurityCsrfConfigurer -> httpSecurityCsrfConfigurer.disable())
 
-                //disabled deafult spring security login form since authentication will be handled using JWT
                 .formLogin(form->form.disable())
 
-                //disabled http basic authentication
+
                 .httpBasic(basic->basic.disable())
 
-                //making application stateless no http sessions , every req must contain a valid jwt token
+
                 .sessionManagement(session->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                //configuerd authorization rules
-                //for now all endpoints require auhtentication
-                // login/register endpointsa can be permmited later
                 .authorizeHttpRequests(auth-> auth.anyRequest().permitAll())
 
-                //registering jwt filter before spring's default authentication flter
-                //ensures  jwt validation happens early in the filter chain
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
