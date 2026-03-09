@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
     /**
      * Handles ResourceNotFoundException and returns 404 Not Found status
      *
@@ -30,20 +29,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponseDTO> handleResourceNotFoundException(ResourceNotFoundException ex, HttpServletRequest request) {
         log.warn("ResourceNotFoundException handled: {}", ex.getMessage());
-        return createErrorResponse(ex, HttpStatus.NOT_FOUND, request);
+        return new ResponseEntity<>(createErrorResponse(ex.getMessage(), HttpStatus.NOT_FOUND, request), HttpStatus.NOT_FOUND);
     }
 
     /**
      * Handles DuplicationResourceException and returns 409 Conflict status
      *
      * @param ex        The intercepted DuplicateResourceException
-     * @param request   The current HHTP request
+     * @param request   The current HTTP request
      * @return          ResponseEntity containing the structured ErrorResponse and 409 status
      */
     @ExceptionHandler(DuplicateResourceException.class)
     public ResponseEntity<ErrorResponseDTO> handleDuplicateResourceException(DuplicateResourceException ex, HttpServletRequest request) {
         log.warn("DuplicateResourceException handled: {}", ex.getMessage());
-        return createErrorResponse(ex, HttpStatus.CONFLICT, request);
+        return new ResponseEntity<>(createErrorResponse(ex.getMessage(), HttpStatus.CONFLICT, request), HttpStatus.CONFLICT);
     }
 
     /**
@@ -56,7 +55,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErrorResponseDTO> handleAuthenticationException(AuthenticationException ex, HttpServletRequest request) {
         log.warn("AuthenticationException handled: {}", ex.getMessage());
-        return createErrorResponse(ex, HttpStatus.UNAUTHORIZED, request);
+        return new ResponseEntity<>(createErrorResponse(ex.getMessage(), HttpStatus.UNAUTHORIZED, request), HttpStatus.UNAUTHORIZED);
     }
 
     /**
@@ -69,7 +68,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidTokenException.class)
     public ResponseEntity<ErrorResponseDTO> handleInvalidTokenException(InvalidTokenException ex, HttpServletRequest request) {
         log.warn("InvalidTokenException handled: {}", ex.getMessage());
-        return createErrorResponse(ex, HttpStatus.UNAUTHORIZED, request);
+        return new ResponseEntity<>(createErrorResponse(ex.getMessage(), HttpStatus.UNAUTHORIZED, request), HttpStatus.UNAUTHORIZED);
     }
 
     /**
@@ -82,35 +81,24 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDTO> handleGlobalException(Exception ex, HttpServletRequest request) {
         log.error("Unhandled application exception: ", ex);
-
-        ErrorResponseDTO errorResponse = ErrorResponseDTO.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
-                .message("An unexpected error occurred. Please try again later.")
-                .path(request.getRequestURI())
-                .build();
-
-        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+        return new ResponseEntity<>(createErrorResponse("An unexpected error occurred. Please try again later.", HttpStatus.INTERNAL_SERVER_ERROR, request), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     /**
      * Utility method for mapping standard attributes to the JSON DTO mapping structure
      *
-     * @param ex        The exception object.
+     * @param message   The error message to be displayed
      * @param status    The mapped HttpStatus
      * @param request   The current HTTP request
      * @return          An instantiation of the unified ErrorResponse record standard
      */
-    private ResponseEntity<ErrorResponseDTO> createErrorResponse(Exception ex, HttpStatus status, HttpServletRequest request) {
-        ErrorResponseDTO errorResponse = ErrorResponseDTO.builder()
+    private ErrorResponseDTO createErrorResponse(String message, HttpStatus status, HttpServletRequest request) {
+        return ErrorResponseDTO.builder()
                 .timestamp(LocalDateTime.now())
                 .status(status.value())
                 .error(status.getReasonPhrase())
-                .message(ex.getMessage())
+                .message(message)
                 .path(request.getRequestURI())
                 .build();
-
-        return new ResponseEntity<>(errorResponse, status);
     }
 }
