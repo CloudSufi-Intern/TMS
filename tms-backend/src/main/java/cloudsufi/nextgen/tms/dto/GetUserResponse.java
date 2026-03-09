@@ -5,7 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 
 
-
 /**
  * Data Transfer Object (DTO) for returning user details.
  * This class is used to encapsulate user information sent back to the client,
@@ -18,7 +17,7 @@ public class GetUserResponse {
     /**
      * Unique identifier of the user.
      */
-    private long id;
+    private Long id;
 
     private String username;
 

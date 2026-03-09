@@ -3,6 +3,7 @@ package cloudsufi.nextgen.tms.service;
 import cloudsufi.nextgen.tms.dto.GetUserResponse;
 import cloudsufi.nextgen.tms.entity.UserEntity;
 import cloudsufi.nextgen.tms.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -15,13 +16,12 @@ import java.util.Optional;
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class UserService {
 
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
 
-    public UserService(UserRepository userRepository){
-        this.userRepository=userRepository;
-    }
+
 
     /**
      * Retrieves a user by searching across multiple identifiers in order of priority:
@@ -31,8 +31,17 @@ public class UserService {
      * @param email    the user's unique email (nullable)
      * @return a {@link GetUserResponse} containing the mapped user data
      * @throws RuntimeException if no user is found matching any of the criteria
+     * @throws IllegalArgumentException if no search parameters are provided
      */
     public GetUserResponse getUser(Long id, String username, String email) {
+        boolean hasId = id != null;
+        boolean hasUsername = username != null && !username.isBlank();
+        boolean hasEmail = email != null && !email.isBlank();
+
+        if (!hasId && !hasUsername && !hasEmail) {
+            log.warn("Service validation failed: No search parameters provided");
+            throw new IllegalArgumentException("At least one search parameter (id, username, or email) must be provided.");
+        }
       try {
           return Optional.ofNullable(id)
                   .flatMap(userRepository::findById)
@@ -49,7 +58,6 @@ public class UserService {
       } catch (Exception e) {
           throw new RuntimeException(e);
       }
-
     }
     /**
      * Maps a UserEntity to a GetUserResponse DTO.

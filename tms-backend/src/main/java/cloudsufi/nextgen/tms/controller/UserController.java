@@ -2,6 +2,7 @@ package cloudsufi.nextgen.tms.controller;
 
 
 import cloudsufi.nextgen.tms.service.UserService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,13 +20,11 @@ import cloudsufi.nextgen.tms.dto.GetUserResponse;
 @RestController
 @RequestMapping("/api/user")
 @Slf4j
+@RequiredArgsConstructor
 public class UserController {
 
     private final UserService userService;
 
-    public UserController(UserService userService) {
-        this.userService = userService;
-    }
 
     /**
      * Retrieves a user based on ID, username, or email.
@@ -40,21 +39,10 @@ public class UserController {
     @GetMapping
     ResponseEntity<?> getUser(@RequestParam(required = false) Long id ,@RequestParam(required = false) String username,@RequestParam(required = false) String email){
         log.info("Received request to fetch user with params - ID: {}, Username: {}, Email: {}", id, username, email);
-        boolean hasId = id != null;
-        boolean hasUsername = username != null && !username.isBlank();
-        boolean hasEmail = email != null && !email.isBlank();
 
-        if (!hasId && !hasUsername && !hasEmail) {
-            log.warn("GET /api/user called without any search parameters");
-           return ResponseEntity
-                   .status(HttpStatus.BAD_REQUEST)
-                   .body("At least one search parameter (id, username, or email) must be provided.");
-       }
 
             return new ResponseEntity<>(userService.getUser(id, username, email), HttpStatus.OK);
 
     }
 
-
     }
-
