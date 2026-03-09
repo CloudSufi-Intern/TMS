@@ -5,6 +5,7 @@ import cloudsufi.nextgen.tms.entity.UserEntity;
 import cloudsufi.nextgen.tms.enums.Role;
 import cloudsufi.nextgen.tms.repository.UserRepository;
 import cloudsufi.nextgen.tms.service.UserService;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -71,10 +73,9 @@ class TmsApplicationTests {
 	@Test
 	@DisplayName("GET /api/user - Should return 400 Bad Request when all search parameters are missing")
 	void getUser_whenNoParametersProvided_shouldReturnBadRequest() throws Exception {
-		mockMvc.perform(get("/api/user"))
-				.andExpect(status().isBadRequest())
-				.andExpect(content().string(containsString("At least one search parameter")));
-
+		assertThatThrownBy(() -> mockMvc.perform(get("/api/user")))
+				.hasCauseInstanceOf(IllegalArgumentException.class)
+				.hasStackTraceContaining("At least one search parameter (id, username, or email) must be provided.");
 		// Ensure the business layer is not invoked for bad requests
 		verifyNoInteractions(userRepository);
 	}
