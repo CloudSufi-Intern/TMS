@@ -28,6 +28,8 @@ import java.net.http.HttpResponse;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
     private final JwtUtil jwtUtil;
 
     @Override
@@ -36,7 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException{
 
 
-        System.out.println("JWT filter executed for request:" + request.getRequestURI());
+   logger.info("JWT filter executed for request: {}", request.getRequestURI());
 
         String authHeader = request.getHeader("Authorization");
         if(authHeader != null && authHeader.startsWith("Bearer")){
@@ -48,6 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             boolean isValid = jwtUtil.validateToken(token);
 
             if(isValid){
+                logger.info("JWT token validated successfully");
             }
         }
 
