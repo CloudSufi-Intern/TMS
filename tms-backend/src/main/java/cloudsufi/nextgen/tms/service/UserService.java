@@ -2,6 +2,8 @@ package cloudsufi.nextgen.tms.service;
 
 import cloudsufi.nextgen.tms.dto.GetUserResponse;
 import cloudsufi.nextgen.tms.entity.UserEntity;
+import cloudsufi.nextgen.tms.exception.BadRequestException;
+import cloudsufi.nextgen.tms.exception.ResourceNotFoundException;
 import cloudsufi.nextgen.tms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,9 +42,9 @@ public class UserService {
 
         if (!hasId && !hasUsername && !hasEmail) {
             log.warn("Service validation failed: No search parameters provided");
-            throw new IllegalArgumentException("At least one search parameter (id, username, or email) must be provided.");
+            throw new BadRequestException("At least one search parameter (id, username, or email) must be provided.");
+
         }
-      try {
           return Optional.ofNullable(id)
                   .flatMap(userRepository::findById)
                   .or(() -> Optional.ofNullable(username).flatMap(userRepository::findByUsername))
@@ -53,11 +55,9 @@ public class UserService {
                   })
                   .orElseThrow(() -> {
                       log.error("User lookup failed. No user found for ID: {}, Username: {}, Email: {}", id, username, email);
-                      return new RuntimeException("User not found ");
+                      return new ResourceNotFoundException("User not found with provided ID, Username, or Email.");
                   });
-      } catch (Exception e) {
-          throw new RuntimeException(e);
-      }
+
     }
     /**
      * Maps a UserEntity to a GetUserResponse DTO.
