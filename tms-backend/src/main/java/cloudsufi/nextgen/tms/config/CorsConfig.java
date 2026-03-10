@@ -8,24 +8,24 @@ import org.springframework.web.filter.CorsFilter;
 
 import java.util.List;
 
+
+/**
+ * Defines a global CorsFilter bean.
+ *
+ * This filter:
+ * - Allows requests from specified frontend origin
+ * - Permits defined HTTP methods
+ * - Allows required headers
+ * - Supports credentials
+ *
+ * Note:
+ *  Spring Security will automatically use this configuration
+ *  when `http.cors(Customizer.withDefaults())` is enabled.
+ */
+
+
 @Configuration
 public class CorsConfig {
-
-
-    /**
-     * Defines a global CorsFilter bean.
-     *
-     * This filter:
-     * - Allows requests from specified frontend origin
-     * - Permits defined HTTP methods
-     * - Allows required headers
-     * - Supports credentials
-     *
-     * Note:
-     *  Spring Security will automatically use this configuration
-     *  when `http.cors(Customizer.withDefaults())` is enabled.
-     */
-
     @Bean
     public CorsFilter corsFilter() {
 
