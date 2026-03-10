@@ -1,9 +1,10 @@
 package cloudsufi.nextgen.tms.repository;
-
+/**
+ * Repository representing a User in the SQL Database
+ * @author Ansh Parnami
+ **/
 import cloudsufi.nextgen.tms.entity.UserEntity;
-import org.apache.catalina.User;
 import org.springframework.data.jpa.repository.JpaRepository;
-
 import java.util.Optional;
 
 /*
@@ -24,6 +25,7 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
 
     boolean existsByUsername(String username);
 
-    Optional<UserEntity>findByEmail(String email);
+    Optional<UserEntity> findByEmail(String email);
 
+    Optional<UserEntity> findByUsername(String username);
 }

@@ -1,6 +1,6 @@
 package cloudsufi.nextgen.tms.dto;
 
-import cloudsufi.nextgen.tms.entity.UserEntity.Role;
+import cloudsufi.nextgen.tms.enums.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
