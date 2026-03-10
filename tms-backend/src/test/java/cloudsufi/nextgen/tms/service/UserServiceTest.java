@@ -1,4 +1,4 @@
-package cloudsufi.nextgen.tms;
+package cloudsufi.nextgen.tms.service;
 
 
 import cloudsufi.nextgen.tms.dto.GetUserResponse;
@@ -6,7 +6,6 @@ import cloudsufi.nextgen.tms.entity.UserEntity;
 import cloudsufi.nextgen.tms.enums.Role;
 import cloudsufi.nextgen.tms.exception.ResourceNotFoundException;
 import cloudsufi.nextgen.tms.repository.UserRepository;
-import cloudsufi.nextgen.tms.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
