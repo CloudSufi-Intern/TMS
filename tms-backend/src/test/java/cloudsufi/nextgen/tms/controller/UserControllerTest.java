@@ -1,8 +1,7 @@
-package cloudsufi.nextgen.tms;
+package cloudsufi.nextgen.tms.controller;
 
 import cloudsufi.nextgen.tms.exception.BadRequestException;
 import cloudsufi.nextgen.tms.repository.UserRepository;
-import cloudsufi.nextgen.tms.service.UserService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
