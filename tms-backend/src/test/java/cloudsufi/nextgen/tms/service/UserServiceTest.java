@@ -1,9 +1,10 @@
 package cloudsufi.nextgen.tms.service;
 
-
 import cloudsufi.nextgen.tms.dto.GetUserResponse;
+import cloudsufi.nextgen.tms.dto.UserRequestDTO;
 import cloudsufi.nextgen.tms.entity.UserEntity;
 import cloudsufi.nextgen.tms.enums.Role;
+import cloudsufi.nextgen.tms.exception.BadRequestException;
 import cloudsufi.nextgen.tms.exception.ResourceNotFoundException;
 import cloudsufi.nextgen.tms.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,24 +13,23 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 /**
  * Tests for the User Service Module.
  *
- * This test suite loads the full Spring Boot application context.
- * using {@link MockMvc} and the Business Logic Layer (Service) directly. The Persistence Layer
- * (Repository) is mocked to isolate business and web logic from the actual database.
+ * This test suite loads the full Spring Boot application context
+ * and tests the Business Logic Layer (Service) directly.
+ * The Persistence Layer (Repository) is mocked to isolate logic
+ * from the actual database.
  *
- *  @author Ansh Parnami
+ * @author Ansh Parnami
  */
 @SpringBootTest
 class UserServiceTest {
@@ -43,8 +43,7 @@ class UserServiceTest {
     private UserEntity mockUser;
 
     /**
-     * Sets up a mock user entity before each test execution to ensure
-     * a clean state and avoid data leakage between tests.
+     * Sets up a mock user entity before each test execution.
      */
     @BeforeEach
     void setUp() {
@@ -56,10 +55,8 @@ class UserServiceTest {
         mockUser.setRole(Role.DEVOPS);
     }
 
-
     /**
-     * Verifies that the Service correctly fetches a user by ID and maps it to a response DTO.
-     * It also ensures that fallback database queries (username/email) are bypassed for performance.
+     * Verifies that the Service correctly fetches a user by ID.
      */
     @Test
     @DisplayName("Service - Should successfully fetch user by ID and skip username/email fallback queries")
@@ -69,18 +66,16 @@ class UserServiceTest {
 
         GetUserResponse response = userService.getUser(1L, null, null);
 
-        assertNotNull(response, "The returned response should not be null");
-        assertEquals(1L, response.getId(), "The ID should match the requested ID");
-        assertEquals("anshcs", response.getUsername(), "The username should match the mock data");
+        assertNotNull(response);
+        assertEquals(1L, response.getId());
+        assertEquals("anshcs", response.getUsername());
 
-        // Verify short-circuit logic: If ID is found, do not query other fields
         verify(userRepository, never()).findByUsername(anyString());
         verify(userRepository, never()).findByEmail(anyString());
     }
 
     /**
-     * Verifies that the Service correctly falls back to fetching a user by username
-     * when the primary identifier (ID) is not provided.
+     * Verifies fallback search by username.
      */
     @Test
     @DisplayName("Service - Should fallback to fetching user by Username when ID is null")
@@ -90,16 +85,15 @@ class UserServiceTest {
 
         GetUserResponse response = userService.getUser(null, "anshcs", null);
 
-        assertNotNull(response, "The returned response should not be null");
-        assertEquals("ansh@cs.com", response.getEmail(), "The email should match the mock data");
+        assertNotNull(response);
+        assertEquals("ansh@cs.com", response.getEmail());
     }
 
     /**
-     * Verifies that the Service throws a RuntimeException when a user cannot be found
-     * using any of the provided fallback search parameters.
+     * Verifies exception when user cannot be found.
      */
     @Test
-    @DisplayName("Service - Should throw RuntimeException when user cannot be found by ID, Username, or Email")
+    @DisplayName("Service - Should throw RuntimeException when user cannot be found")
     void getUser_whenUserDoesNotExist_shouldThrowException() {
 
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
@@ -110,7 +104,79 @@ class UserServiceTest {
                 userService.getUser(99L, "unknown", "no@email.com")
         );
 
-        assertTrue(exception.getMessage().contains("User not found"),
-                "Exception message should indicate the user was not found");
+        assertTrue(exception.getMessage().contains("User not found"));
+    }
+
+    /**
+     * Verifies that a user is successfully created.
+     */
+    @Test
+    @DisplayName("Service - Should successfully create a new user")
+    void addUser_whenValidRequest_shouldSaveUser() {
+
+        UserRequestDTO request = new UserRequestDTO();
+        request.setUsername("anshcs");
+        request.setEmail("ansh@cs.com");
+        request.setPhoneNo("1234567890");
+        request.setPassword("password123");
+        request.setRole(Role.DEVOPS);
+
+        when(userRepository.existsByEmail("ansh@cs.com")).thenReturn(false);
+        when(userRepository.existsByUsername("anshcs")).thenReturn(false);
+        when(userRepository.save(any(UserEntity.class))).thenReturn(mockUser);
+
+        UserEntity savedUser = userService.addUser(request);
+
+        assertNotNull(savedUser);
+        assertEquals("anshcs", savedUser.getUsername());
+        assertEquals("ansh@cs.com", savedUser.getEmail());
+
+        verify(userRepository).save(any(UserEntity.class));
+    }
+
+    /**
+     * Verifies exception when email already exists.
+     */
+    @Test
+    @DisplayName("Service - Should throw exception when email already exists")
+    void addUser_whenEmailAlreadyExists_shouldThrowException() {
+
+        UserRequestDTO request = new UserRequestDTO();
+        request.setUsername("anshcs");
+        request.setEmail("ansh@cs.com");
+
+        when(userRepository.existsByEmail("ansh@cs.com")).thenReturn(true);
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+                userService.addUser(request)
+        );
+
+        assertTrue(exception.getMessage().contains("email already exists"));
+
+        verify(userRepository, never()).save(any());
+    }
+
+    /**
+     * Verifies exception when username already exists.
+     */
+    @Test
+    @DisplayName("Service - Should throw exception when username already exists")
+    void addUser_whenUsernameAlreadyExists_shouldThrowException() {
+
+        UserRequestDTO request = new UserRequestDTO();
+        request.setUsername("anshcs");
+        request.setEmail("ansh@cs.com");
+
+        when(userRepository.existsByEmail("ansh@cs.com")).thenReturn(false);
+        when(userRepository.existsByUsername("anshcs")).thenReturn(true);
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+                userService.addUser(request)
+        );
+
+        assertTrue(exception.getMessage().contains("username already exists"));
+
+        verify(userRepository, never()).save(any());
     }
 }
+
