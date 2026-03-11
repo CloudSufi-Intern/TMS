@@ -75,8 +75,8 @@ class AuthServiceTest {
     @DisplayName("Service - Should successfully register user with BCrypt-encoded password")
     void signUp_whenValidRequest_shouldEncodePasswordAndSaveUser() {
 
-        when(userRepository.existsByEmail("yashas@cs.com")).thenReturn(false);
-        when(userRepository.existsByUsername("yashascs")).thenReturn(false);
+        when(userRepository.findByEmail("yashas@cs.com")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("yashascs")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("password123")).thenReturn("$2a$10$hashedpassword");
         when(userRepository.save(any(UserEntity.class))).thenReturn(mockUser);
 
@@ -110,7 +110,7 @@ class AuthServiceTest {
         request.setEmail("yashas@cs.com");
         request.setPassword("password123");
 
-        when(userRepository.existsByEmail("yashas@cs.com")).thenReturn(true);
+        when(userRepository.findByEmail("yashas@cs.com")).thenReturn(Optional.of(mockUser));
 
         BadRequestException exception = assertThrows(BadRequestException.class, () ->
                 authService.signUp(request)
@@ -133,8 +133,8 @@ class AuthServiceTest {
         request.setEmail("yashas@cs.com");
         request.setPassword("password123");
 
-        when(userRepository.existsByEmail("yashas@cs.com")).thenReturn(false);
-        when(userRepository.existsByUsername("yashascs")).thenReturn(true);
+        when(userRepository.findByEmail("yashas@cs.com")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("yashascs")).thenReturn(Optional.of(mockUser));
 
         BadRequestException exception = assertThrows(BadRequestException.class, () ->
                 authService.signUp(request)

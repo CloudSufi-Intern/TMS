@@ -42,15 +42,15 @@ public class AuthService {
         log.info("Received sign-up request for username: {} and email: {}",
                 request.getUsername(), request.getEmail());
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        userRepository.findByEmail(request.getEmail()).ifPresent(existing -> {
             log.warn("Sign-up failed: Email already exists -> {}", request.getEmail());
             throw new BadRequestException("User with this email already exists.");
-        }
+        });
 
-        if (userRepository.existsByUsername(request.getUsername())) {
+        userRepository.findByUsername(request.getUsername()).ifPresent(existing -> {
             log.warn("Sign-up failed: Username already exists -> {}", request.getUsername());
             throw new BadRequestException("User with this username already exists.");
-        }
+        });
 
         UserEntity user = UserEntity.builder()
                 .username(request.getUsername())
