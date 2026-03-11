@@ -1,8 +1,7 @@
-package cloudsufi.nextgen.tms.security.config;
+package cloudsufi.nextgen.tms.config;
 
-import cloudsufi.nextgen.tms.security.filter.JwtAuthenticationFilter;
+import cloudsufi.nextgen.tms.filter.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
-import org.apache.catalina.User;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -11,18 +10,15 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-/*
- * SecurityConfig
- *
+/**
  * This class configures Spring Security for the TMS application.
- * It defines the security filter chain, authentication manager,
- * password encoder, and integrates the JWT authentication filter.
- *
- * The configuration ensures that the application follows
- * stateless authentication using JWT tokens.
- * disabled default spring security login form since authentication will be handled using JWT
- *
- * Author: Priyanshu Gupta
+ * It defines the core security filter chain and integrates the custom
+ * JWT authentication filter. The configuration ensures that the application
+ * follows stateless authentication using JWT tokens.
+ * Default Spring Security login forms and HTTP basic authentication
+ * are disabled since authentication is strictly handled via JWT.
+
+ * @author Ansh Parnami
  */
 @Configuration
 @EnableWebSecurity
@@ -30,26 +26,27 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    /**
+     * Configures the HTTP security rules for the application.
+     * Disables CSRF, sets session management to stateless, requires authentication
+     * for all requests, and registers the JWT filter before the standard
+     * username/password authentication filter.
+     *
+     * @param http the {@link HttpSecurity} object to modify.
+     * @return the fully configured {@link SecurityFilterChain}.
+     * @throws Exception if an error occurs while building the security configuration.
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
 
         http
-
                 .csrf(httpSecurityCsrfConfigurer -> httpSecurityCsrfConfigurer.disable())
-
                 .formLogin(form->form.disable())
-
-
                 .httpBasic(basic->basic.disable())
-
-
                 .sessionManagement(session->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                .authorizeHttpRequests(auth-> auth.anyRequest().permitAll())
-
+                .authorizeHttpRequests(auth-> auth.anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-
         return http.build();
     }
 }
