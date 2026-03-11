@@ -109,28 +109,9 @@ public class UserControllerTest {
     @DisplayName("GET /api/user/search - Should return user suggestions for matching username prefix")
     void searchUsers_whenValidUsernameProvided_shouldReturnSuggestions() throws Exception {
         String usernamePrefix = "jo";
-
-        // Mocking UserSuggestionDTO interface using a simple anonymous class
-        UserSuggestionDTO user1 = new UserSuggestionDTO() {
-            @Override
-            public Long getId() { return 1L; }
-            @Override
-            public String getUsername() { return "john"; }
-        };
-        UserSuggestionDTO user2 = new UserSuggestionDTO() {
-            @Override
-            public Long getId() { return 2L; }
-            @Override
-            public String getUsername() { return "josh"; }
-        };
-
-        List<UserSuggestionDTO> suggestions = List.of(user1, user2);
+        List<UserSuggestionDTO> suggestions = List.of( new UserSuggestionDTO(1L, "john"), new UserSuggestionDTO(2L, "josh") );
         Page<UserSuggestionDTO> page = new PageImpl<>(suggestions);
-
-        // Mock the service
         when(userService.searchUsers(usernamePrefix, 0, 10)).thenReturn(page);
-
-        // Perform the request and verify the response
         mockMvc.perform(get("/api/user/search")
                         .param("username", usernamePrefix))
                 .andExpect(status().isOk())
@@ -139,8 +120,6 @@ public class UserControllerTest {
                 .andExpect(jsonPath("$[0].username").value("john"))
                 .andExpect(jsonPath("$[1].id").value(2))
                 .andExpect(jsonPath("$[1].username").value("josh"));
-
-        verify(userService).searchUsers(usernamePrefix, 0, 10);
-    }
+        verify(userService).searchUsers(usernamePrefix, 0, 10); }
 
 }

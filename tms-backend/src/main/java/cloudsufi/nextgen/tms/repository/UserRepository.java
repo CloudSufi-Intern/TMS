@@ -35,32 +35,21 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     Optional<UserEntity> findByUsername(String username);
 
     /**
-     * Finds users whose usernames start with the specified prefix using a native SQL query.
+     * Finds users whose usernames start with the specified prefix.
      *
-     * The search supports pagination. Results are returned as a read-only interface projection
-     * {@link UserSuggestionDTO}, containing only the user ID and username.
-     *
-     * This method leverages a database index on the "username" column for fast lookup.
+     * The search is case-insensitive and supports pagination.
+     * Only the user ID and username are returned through {@link UserSuggestionDTO}.
      *
      * @param username The username prefix used for searching.
-     *                 Must be at least 2 characters long.
      * @param pageable Pagination information including page number and page size.
+     *
      * @return A paginated list of {@link UserSuggestionDTO} containing matching users.
-     * @see UserSuggestionDTO
      * @author vishwasvaidya
      */
-    @Query(
-            value = """
-                SELECT u.id AS id, u.username AS username
-                FROM users u
-                WHERE u.username LIKE CONCAT(:username, '%')
-                """,
-            countQuery = """
-                SELECT COUNT(*)
-                FROM users u
-                WHERE u.username LIKE CONCAT(:username, '%')
-                """,
-            nativeQuery = true
-    )
+    @Query("""
+        SELECT new cloudsufi.nextgen.tms.dto.UserSuggestionDTO(u.id, u.username)
+        FROM UserEntity u
+        WHERE LOWER(u.username) LIKE LOWER(CONCAT(:username, '%'))
+        """)
     Page<UserSuggestionDTO> searchUsers(String username, Pageable pageable);
 }
