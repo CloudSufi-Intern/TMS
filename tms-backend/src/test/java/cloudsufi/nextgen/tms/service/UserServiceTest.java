@@ -194,18 +194,21 @@ class UserServiceTest {
 
         String username = "vi";
 
-        UserSuggestionDTO suggestion =
-                new UserSuggestionDTO(1L, "vishwas");
+        // Mock the interface
+        UserSuggestionDTO suggestion = mock(UserSuggestionDTO.class);
+        when(suggestion.getId()).thenReturn(1L);
+        when(suggestion.getUsername()).thenReturn("vishwas");
 
-        Page<UserSuggestionDTO> mockPage =
-                new PageImpl<>(List.of(suggestion));
+        Page<UserSuggestionDTO> mockPage = new PageImpl<>(List.of(suggestion));
 
+        // Mock repository
         when(userRepository.searchUsers(eq(username), any(Pageable.class)))
                 .thenReturn(mockPage);
 
-        Page<UserSuggestionDTO> result =
-                userService.searchUsers(username, 0, 10);
+        // Call service
+        Page<UserSuggestionDTO> result = userService.searchUsers(username, 0, 10);
 
+        // Assertions
         assertNotNull(result);
         assertEquals(1, result.getContent().size());
         assertEquals("vishwas", result.getContent().get(0).getUsername());
