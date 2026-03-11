@@ -79,14 +79,16 @@ public class UserController {
      * that match the search criteria. Maximum 10 results are returned.
      * @author vishwasvaidya
      */
+
     @GetMapping("/search")
-    public List<UserSuggestionDTO> searchUsers(
+    public ResponseEntity<List<UserSuggestionDTO>> searchUsers(
             @RequestParam String username
     )
     {
-
-        return userService
+        List<UserSuggestionDTO> users = userService
                 .searchUsers(username, 0, 10)
                 .getContent();
+
+        return ResponseEntity.ok(users);
     }
 }
