@@ -5,10 +5,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.LocalDateTime;
+import java.util.stream.Collectors;
 
 /**
  * Global exception handler that intercepts application exceptions and
@@ -69,6 +71,24 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponseDTO> handleInvalidTokenException(InvalidTokenException ex, HttpServletRequest request) {
         log.warn("InvalidTokenException handled: {}", ex.getMessage());
         return new ResponseEntity<>(createErrorResponse(ex.getMessage(), HttpStatus.UNAUTHORIZED, request), HttpStatus.UNAUTHORIZED);
+    }
+
+    /**
+     * Handles @Valid bean validation failures and returns 400 Bad Request status.
+     * Collects all field-level constraint violations into a single error message.
+     *
+     * @param ex        The intercepted MethodArgumentNotValidException
+     * @param request   The current HTTP request
+     * @return          ResponseEntity containing the structured ErrorResponse and 400 status
+     * @author Yashas Yadav
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponseDTO> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex, HttpServletRequest request) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+        log.warn("MethodArgumentNotValidException handled: {}", message);
+        return new ResponseEntity<>(createErrorResponse(message, HttpStatus.BAD_REQUEST, request), HttpStatus.BAD_REQUEST);
     }
 
     /**
