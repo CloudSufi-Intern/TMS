@@ -137,7 +137,7 @@ public class UserService {
 
     public Page<UserSuggestionDTO> searchUsers(String username, int page, int size) {
         if (username == null || username.trim().length() < 2) {
-            throw new IllegalArgumentException("Username must contain at least 2 characters");
+            throw new BadRequestException("Username must contain at least 2 characters");
         }
         Pageable pageable = PageRequest.of(page, size);
         return userRepository.searchUsers(username, pageable);
