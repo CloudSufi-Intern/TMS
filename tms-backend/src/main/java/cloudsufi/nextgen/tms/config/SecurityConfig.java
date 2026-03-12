@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -17,7 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * follows stateless authentication using JWT tokens.
  * Default Spring Security login forms and HTTP basic authentication
  * are disabled since authentication is strictly handled via JWT.
-
+ *
  * @author Ansh Parnami
  */
 @Configuration
@@ -28,9 +30,9 @@ public class SecurityConfig {
 
     /**
      * Configures the HTTP security rules for the application.
-     * Disables CSRF, sets session management to stateless, requires authentication
-     * for all requests, and registers the JWT filter before the standard
-     * username/password authentication filter.
+     * Disables CSRF, sets session management to stateless, permits the
+     * signup and login endpoints publicly, and requires authentication
+     * for all other requests.
      *
      * @param http the {@link HttpSecurity} object to modify.
      * @return the fully configured {@link SecurityFilterChain}.
@@ -45,8 +47,22 @@ public class SecurityConfig {
                 .httpBasic(basic->basic.disable())
                 .sessionManagement(session->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth-> auth.anyRequest().authenticated())
+                .authorizeHttpRequests(auth-> auth
+                        .requestMatchers("/api/auth/signup", "/api/auth/login").permitAll()
+                        .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    /**
+     * Provides a BCrypt password encoder bean for hashing passwords on sign-up
+     * and verifying them on login.
+     *
+     * @return a {@link BCryptPasswordEncoder} instance
+     * @author Yashas Yadav
+     */
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }
