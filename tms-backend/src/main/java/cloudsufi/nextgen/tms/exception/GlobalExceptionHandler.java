@@ -85,6 +85,19 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles BadRequestException and returns 400 Bad Request status
+     *
+     * @param ex        The intercepted BadRequestException
+     * @param request   The current HTTP request
+     * @return          ResponseEntity containing the structured ErrorResponse and 400 status
+     */
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ErrorResponseDTO> handleBadRequestException(BadRequestException ex, HttpServletRequest request) {
+        log.warn("BadRequestException handled: {}", ex.getMessage());
+        return new ResponseEntity<>(createErrorResponse(ex.getMessage(), HttpStatus.BAD_REQUEST, request), HttpStatus.BAD_REQUEST);
+    }
+
+    /**
      * Utility method for mapping standard attributes to the JSON DTO mapping structure
      *
      * @param message   The error message to be displayed
