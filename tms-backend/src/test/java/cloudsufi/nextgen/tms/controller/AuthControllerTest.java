@@ -7,6 +7,7 @@ import cloudsufi.nextgen.tms.dto.SignUpResponseDTO;
 import cloudsufi.nextgen.tms.enums.Role;
 import cloudsufi.nextgen.tms.exception.AuthenticationException;
 import cloudsufi.nextgen.tms.exception.BadRequestException;
+import cloudsufi.nextgen.tms.exception.DuplicateResourceException;
 import cloudsufi.nextgen.tms.repository.UserRepository;
 import cloudsufi.nextgen.tms.service.AuthService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -81,26 +82,27 @@ public class AuthControllerTest {
     }
 
     /**
-     * Verifies that the Controller returns 400 Bad Request when email already exists.
+     * Verifies that the Controller returns 409 Conflict when email already exists.
      */
     @Test
-    @DisplayName("POST /api/auth/signup - Should return 400 Bad Request when email already exists")
-    void signUp_whenEmailAlreadyExists_shouldReturnBadRequest() throws Exception {
+    @DisplayName("POST /api/auth/signup - Should return 409 Conflict when email already exists")
+    void signUp_whenEmailAlreadyExists_shouldReturnConflict() throws Exception {
 
         SignUpRequestDTO request = new SignUpRequestDTO();
         request.setUsername("yashascs");
         request.setEmail("yashas@cs.com");
         request.setPassword("password123");
+        request.setPhoneNo("1234567890");
         request.setRole(Role.ENGINEERING);
 
         when(authService.signUp(any(SignUpRequestDTO.class)))
-                .thenThrow(new BadRequestException("User with this email already exists."));
+                .thenThrow(new DuplicateResourceException("User with this email already exists."));
 
         mockMvc.perform(post("/api/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(result -> assertTrue(result.getResolvedException() instanceof BadRequestException))
+                .andExpect(status().isConflict())
+                .andExpect(result -> assertTrue(result.getResolvedException() instanceof DuplicateResourceException))
                 .andExpect(result -> assertEquals(
                         "User with this email already exists.",
                         result.getResolvedException().getMessage()));

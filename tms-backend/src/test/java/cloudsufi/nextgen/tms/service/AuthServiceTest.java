@@ -7,7 +7,7 @@ import cloudsufi.nextgen.tms.dto.SignUpResponseDTO;
 import cloudsufi.nextgen.tms.entity.UserEntity;
 import cloudsufi.nextgen.tms.enums.Role;
 import cloudsufi.nextgen.tms.exception.AuthenticationException;
-import cloudsufi.nextgen.tms.exception.BadRequestException;
+import cloudsufi.nextgen.tms.exception.DuplicateResourceException;
 import cloudsufi.nextgen.tms.repository.UserRepository;
 import cloudsufi.nextgen.tms.util.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -109,10 +109,11 @@ class AuthServiceTest {
         request.setUsername("yashascs");
         request.setEmail("yashas@cs.com");
         request.setPassword("password123");
+        request.setPhoneNo("1234567890");
 
         when(userRepository.findByEmail("yashas@cs.com")).thenReturn(Optional.of(mockUser));
 
-        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+        DuplicateResourceException exception = assertThrows(DuplicateResourceException.class, () ->
                 authService.signUp(request)
         );
 
@@ -132,11 +133,12 @@ class AuthServiceTest {
         request.setUsername("yashascs");
         request.setEmail("yashas@cs.com");
         request.setPassword("password123");
+        request.setPhoneNo("1234567890");
 
         when(userRepository.findByEmail("yashas@cs.com")).thenReturn(Optional.empty());
         when(userRepository.findByUsername("yashascs")).thenReturn(Optional.of(mockUser));
 
-        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+        DuplicateResourceException exception = assertThrows(DuplicateResourceException.class, () ->
                 authService.signUp(request)
         );
 

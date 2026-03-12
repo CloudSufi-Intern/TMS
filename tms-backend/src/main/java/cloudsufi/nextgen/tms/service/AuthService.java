@@ -6,7 +6,7 @@ import cloudsufi.nextgen.tms.dto.SignUpRequestDTO;
 import cloudsufi.nextgen.tms.dto.SignUpResponseDTO;
 import cloudsufi.nextgen.tms.entity.UserEntity;
 import cloudsufi.nextgen.tms.exception.AuthenticationException;
-import cloudsufi.nextgen.tms.exception.BadRequestException;
+import cloudsufi.nextgen.tms.exception.DuplicateResourceException;
 import cloudsufi.nextgen.tms.repository.UserRepository;
 import cloudsufi.nextgen.tms.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +35,7 @@ public class AuthService {
      *
      * @param request DTO containing sign-up details
      * @return the saved user details as {@link SignUpResponseDTO}
-     * @throws BadRequestException if email or username already exists
+     * @throws DuplicateResourceException if email or username already exists
      */
     public SignUpResponseDTO signUp(SignUpRequestDTO request) {
 
@@ -44,12 +44,12 @@ public class AuthService {
 
         userRepository.findByEmail(request.getEmail()).ifPresent(existing -> {
             log.warn("Sign-up failed: Email already exists -> {}", request.getEmail());
-            throw new BadRequestException("User with this email already exists.");
+            throw new DuplicateResourceException("User with this email already exists.");
         });
 
         userRepository.findByUsername(request.getUsername()).ifPresent(existing -> {
             log.warn("Sign-up failed: Username already exists -> {}", request.getUsername());
-            throw new BadRequestException("User with this username already exists.");
+            throw new DuplicateResourceException("User with this username already exists.");
         });
 
         UserEntity user = UserEntity.builder()
