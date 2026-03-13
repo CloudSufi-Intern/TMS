@@ -14,25 +14,53 @@ const Signup = () => {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
-    password: ''
+    password: '',
+    role: 'IT',
+    phoneNo: ''
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const roles = [
+    'IT', 'ENGINEERING', 'HR', 'MANAGER', 'LEAD',
+    'ARCHITECT', 'DEVOPS', 'DEVSECOPS', 'INTERN'
+  ];
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSignup = (e) => {
+  const validateForm = () => {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const phoneRegex = /^[\d\s\-+]{10,15}$/;
+
+      if (!emailRegex.test(formData.email)) {
+        setError("Please enter a valid email address.");
+        return false;
+      }
+      if (!phoneRegex.test(formData.phoneNo)) {
+        setError("Please enter a valid phone number.");
+        return false;
+      }
+
+      setError("");
+      return true;
+    };
+
+    const handleSignup = (e) => {
       e.preventDefault();
-      console.log("Frontend captured this Signup Data:", formData);
-      navigate('/login');
-  };
+
+      if (validateForm()) {
+        setIsLoading(true);
+        console.log("Validation Passed! Sending Data:", formData);
+        navigate('/login');
+      }
+    };
 
   return (
-    <div className="bg-[#f4f6fb] min-h-screen flex flex-col bg-blue-100 font-sans">
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="bg-white rounded-[20px] shadow-sm p-10 w-full max-w-[440px]">
+    <div className="bg-[#f4f6fb] min-h-screen flex flex-col font-sans">
+      <main className="flex-1 flex items-center justify-center p-4 py-12">
+        <div className="bg-white rounded-[20px] shadow-sm p-10 w-full max-w-[480px]">
 
           <div className="w-16 h-16 bg-[#554af0] rounded-2xl flex items-center justify-center mx-auto mb-6">
             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
@@ -41,7 +69,6 @@ const Signup = () => {
           <h1 className="text-[26px] font-semibold text-center text-gray-900 mb-2 tracking-tight">Ticket Management System</h1>
           <p className="text-center text-gray-500 text-[15px] mb-6">Create your account</p>
 
-          {/* Display Backend Errors Here */}
           {error && <div className="mb-4 p-3 text-sm text-red-600 bg-red-50 rounded-lg border border-red-100">{error}</div>}
 
           <form onSubmit={handleSignup} className="space-y-4">
@@ -60,38 +87,58 @@ const Signup = () => {
 
             <div>
               <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Email Address</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <svg className="h-[18px] w-[18px] text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                </div>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="you@company.com"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#554af0] focus:border-[#554af0] outline-none text-[15px] placeholder-gray-400"
-                  required
-                />
-              </div>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="you@company.com"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#554af0] focus:border-[#554af0] outline-none text-[15px] placeholder-gray-400"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Phone Number</label>
+              <input
+                type="tel"
+                name="phoneNo"
+                value={formData.phoneNo}
+                onChange={handleChange}
+                placeholder="+1 (555) 000-0000"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#554af0] focus:border-[#554af0] outline-none text-[15px] placeholder-gray-400"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Organizational Role</label>
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#554af0] focus:border-[#554af0] outline-none text-[15px] bg-white text-gray-700"
+                required
+              >
+                {roles.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
               <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Password</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <svg className="h-[18px] w-[18px] text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                </div>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#554af0] focus:border-[#554af0] outline-none text-[15px] placeholder-gray-400"
-                  required
-                />
-              </div>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="••••••••"
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-1 focus:ring-[#554af0] focus:border-[#554af0] outline-none text-[15px] placeholder-gray-400"
+                required
+              />
             </div>
 
             <button disabled={isLoading} type="submit" className="w-full bg-[#554af0] hover:bg-[#463bce] disabled:bg-indigo-300 text-white font-medium py-3 rounded-lg mt-2 text-[15px] transition">
