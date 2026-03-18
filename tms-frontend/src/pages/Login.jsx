@@ -3,9 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 
 /**
  * Login page component
- * Handles user input for authentication
+ * Handles user authentication via POST /api/auth/login.
+ * On success, stores the JWT token in localStorage and redirects to dashboard.
+ * Displays meaningful error messages for invalid credentials or server errors.
  *
  * @author Vedanshu Garg
+ * @author Yashas Yadav (API integration)
  * @returns Login form UI
  */
 const Login = () => {
@@ -17,12 +20,45 @@ const Login = () => {
 
   const handleChange = (e) => {
     setCredentials({ ...credentials, [e.target.name]: e.target.value });
+    if (error) setError('');
   };
 
-  const handleLogin = (e) => {
-      e.preventDefault();
-      console.log("Frontend captured these Login Credentials:", credentials);
-      alert("Login UI working! Backend connection pending.");
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:8080/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Invalid email or password. Please try again.');
+        } else if (response.status === 400) {
+          setError(data.message || 'Please fill in all required fields.');
+        } else {
+          setError('Something went wrong. Please try again later.');
+        }
+        return;
+      }
+
+      // store JWT token for use in secured API calls
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('tokenType', data.tokenType);
+
+      navigate('/dashboard');
+
+    } catch (err) {
+      setError('Unable to connect to the server. Please check your connection.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -38,7 +74,12 @@ const Login = () => {
           <p className="text-center text-gray-500 text-[15px] mb-6">Welcome back</p>
 
           {/* Display Login Errors */}
-          {error && <div className="mb-4 p-3 text-sm text-red-600 bg-red-50 rounded-lg border border-red-100">{error}</div>}
+          {error && (
+            <div className="mb-4 p-3 text-sm text-red-600 bg-red-50 rounded-lg border border-red-100 flex items-start gap-2">
+              <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span>{error}</span>
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>

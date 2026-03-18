@@ -3,9 +3,12 @@ import { useState } from 'react';
 
 /**
  * Signup page component
- * Allows new users to create an account
+ * Allows new users to create an account via POST /api/auth/signup.
+ * Maps the "Full Name" field to the backend's "username" field.
+ * Displays meaningful error messages for validation failures and conflicts.
  *
  * @author Vedanshu Garg
+ * @author Yashas Yadav (API integration)
  * @returns Signup form UI
  */
 const Signup = () => {
@@ -28,34 +31,70 @@ const Signup = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (error) setError('');
   };
 
   const validateForm = () => {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const phoneRegex = /^[\d\s\-+]{10,15}$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^[\d\s\-+]{10,15}$/;
 
-      if (!emailRegex.test(formData.email)) {
-        setError("Please enter a valid email address.");
-        return false;
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid email address.");
+      return false;
+    }
+    if (!phoneRegex.test(formData.phoneNo)) {
+      setError("Please enter a valid phone number (10-15 digits).");
+      return false;
+    }
+
+    setError("");
+    return true;
+  };
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:8080/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: formData.fullName,
+          email: formData.email,
+          password: formData.password,
+          phoneNo: formData.phoneNo,
+          role: formData.role,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 409) {
+          // duplicate email or username
+          setError(data.message || 'An account with this email or username already exists.');
+        } else if (response.status === 400) {
+          setError(data.message || 'Please check your details and try again.');
+        } else {
+          setError('Something went wrong. Please try again later.');
+        }
+        return;
       }
-      if (!phoneRegex.test(formData.phoneNo)) {
-        setError("Please enter a valid phone number.");
-        return false;
-      }
 
-      setError("");
-      return true;
-    };
+      // registration successful — redirect to login
+      navigate('/login');
 
-    const handleSignup = (e) => {
-      e.preventDefault();
-
-      if (validateForm()) {
-        setIsLoading(true);
-        console.log("Validation Passed! Sending Data:", formData);
-        navigate('/login');
-      }
-    };
+    } catch (err) {
+      setError('Unable to connect to the server. Please check your connection.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="bg-[#f4f6fb] min-h-screen flex flex-col font-sans">
@@ -69,7 +108,12 @@ const Signup = () => {
           <h1 className="text-[26px] font-semibold text-center text-gray-900 mb-2 tracking-tight">Ticket Management System</h1>
           <p className="text-center text-gray-500 text-[15px] mb-6">Create your account</p>
 
-          {error && <div className="mb-4 p-3 text-sm text-red-600 bg-red-50 rounded-lg border border-red-100">{error}</div>}
+          {error && (
+            <div className="mb-4 p-3 text-sm text-red-600 bg-red-50 rounded-lg border border-red-100 flex items-start gap-2">
+              <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span>{error}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSignup} className="space-y-4">
             <div>
