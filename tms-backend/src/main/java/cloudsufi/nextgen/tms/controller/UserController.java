@@ -1,6 +1,7 @@
 package cloudsufi.nextgen.tms.controller;
 
 import cloudsufi.nextgen.tms.dto.GetUserResponse;
+import cloudsufi.nextgen.tms.dto.UpdateUserRequestDTO;
 import cloudsufi.nextgen.tms.dto.UserRequestDTO;
 import cloudsufi.nextgen.tms.dto.UserSuggestionDTO;
 import cloudsufi.nextgen.tms.entity.UserEntity;
@@ -92,6 +93,25 @@ public class UserController {
 
 
         return ResponseEntity.ok(users);
+    }
+
+    /**
+     * Updates the logged-in user's username and/or phone number.
+     *
+     * @param request DTO containing fields to update (partial allowed)
+     * @return ResponseEntity containing updated {@link GetUserResponse}
+     *
+     * @author Shubhanshu
+     */
+    @PutMapping
+    public ResponseEntity<GetUserResponse> updateUser(
+            @RequestBody UpdateUserRequestDTO request) {
+
+        log.info("Received request to update logged-in user");
+
+        GetUserResponse updatedUser = userService.updateUser(request);
+
+        return ResponseEntity.ok(updatedUser);
     }
 
 }

@@ -1,6 +1,7 @@
 package cloudsufi.nextgen.tms.service;
 
 import cloudsufi.nextgen.tms.dto.GetUserResponse;
+import cloudsufi.nextgen.tms.dto.UpdateUserRequestDTO;
 import cloudsufi.nextgen.tms.dto.UserRequestDTO;
 import cloudsufi.nextgen.tms.dto.UserSuggestionDTO;
 import cloudsufi.nextgen.tms.entity.UserEntity;
@@ -12,6 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -142,5 +145,78 @@ public class UserService {
         Pageable pageable = PageRequest.of(page, size);
         return userRepository.searchUsers(username, pageable);
     }
+
+    /**
+     * Updates the username and/or phone number of the currently authenticated user.
+     *
+     * This method supports partial updates:
+     * - If only username is provided → updates username
+     * - If only phone number is provided → updates phone number
+     * - If both are provided → updates both
+     *
+     * Workflow:
+     * 1. Extract username from JWT token
+     * 2. Fetch user from database using username
+     * 3. If username is provided:
+     *      - Check uniqueness (only if changed)
+     *      - Update username
+     * 4. If phone number is provided:
+     *      - Update phone number
+     * 5. Save updated user
+     * 6. Return mapped response DTO
+     *
+     * @param request DTO containing fields to update (partial allowed)
+     * @return updated {@link GetUserResponse}
+     *
+     * @throws BadRequestException       if username already exists
+     * @throws ResourceNotFoundException if user is not found
+     *
+     * @author Shubhanshu
+     */
+    public GetUserResponse updateUser(UpdateUserRequestDTO request) {
+
+        // Step 1: Extract username from SecurityContext (JWT)
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUserEmail = authentication.getName();
+
+        log.info("Received request to update user with username: {}", currentUserEmail);
+
+        // Step 2: Fetch existing user using username
+        UserEntity existingUser = userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() -> {
+                    log.error("User update failed. No user found with username: {}", currentUserEmail);
+                    return new ResourceNotFoundException("User not found.");
+                });
+
+        // Step 3: Update username if provided
+        if (request.getUsername() != null && !request.getUsername().isBlank()) {
+
+            String newUsername = request.getUsername();
+
+            // Check uniqueness only if username is being changed
+            if (!existingUser.getUsername().equals(newUsername)
+                    && userRepository.existsByUsername(newUsername)) {
+
+                log.warn("User update failed: Username already exists -> {}", newUsername);
+                throw new BadRequestException("Username is already taken.");
+            }
+
+            existingUser.setUsername(newUsername);
+        }
+
+        // Step 4: Update phone number if provided
+        if (request.getPhoneNo() != null && !request.getPhoneNo().isBlank()) {
+            existingUser.setPhoneNo(request.getPhoneNo());
+        }
+
+        // Step 5: Save updated user
+        UserEntity updatedUser = userRepository.save(existingUser);
+
+        log.info("User updated successfully with username: {}", updatedUser.getUsername());
+
+        // Step 6: Return response DTO
+        return transformUserEntity(updatedUser);
+    }
+
 
 }
