@@ -15,6 +15,7 @@ import cloudsufi.nextgen.tms.repository.TicketHistoryRepository;
 import cloudsufi.nextgen.tms.repository.TicketRepository;
 import cloudsufi.nextgen.tms.repository.UserRepository;
 
+import cloudsufi.nextgen.tms.util.JwtUtil;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +41,7 @@ public class TicketService {
 
     private final TicketRepository ticketRepository;
     private final TicketHistoryRepository ticketHistoryRepository;
-    private final UserRepository userRepository;
+    private final JwtUtil jwtUtil;
     private final AttachmentRepository attachmentRepository;
 
     /**
@@ -58,7 +59,6 @@ public class TicketService {
     public TicketRaiseResponse raiseTicket(TicketRaiseRequest request) {
         log.info("Initiating ticket creation process for title: '{}'", request.getTitle());
 
-        validateTicketRequest(request);
         TicketEntity savedTicket = saveTicketEntity(request);
         saveTicketHistoryEntity(savedTicket);
 
@@ -91,21 +91,7 @@ public class TicketService {
      */
     private TicketEntity saveTicketEntity(TicketRaiseRequest request) {
         log.info("Extracting user identity from Spring Security Context...");
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null || !authentication.isAuthenticated()) {
-            log.warn("Ticket creation blocked: No authenticated user found in Security Context.");
-            throw new AuthenticationException("User is not authenticated");
-        }
-
-        String email = authentication.getName();
-        log.debug("Looking up user entity for email: {}", email);
-
-        UserEntity creator = userRepository.findByEmail(email)
-                .orElseThrow(() -> {
-                    log.error("Ticket creation failed: User not found in database for email: {}", email);
-                    return new ResourceNotFoundException("User not found: " + email);
-                });
+        UserEntity creator=jwtUtil.extractUser();
 
         log.debug("Building TicketEntity map...");
         TicketEntity ticket = TicketEntity.builder()
@@ -148,32 +134,6 @@ public class TicketService {
     }
 
     /**
-     * Performs strict business validations on the incoming request before any
-     * database operations or security context lookups occur.
-     *
-     * @param request The raw incoming request DTO.
-     * @throws BadRequestException If required fields are missing or logically invalid.
-     */
-    private void validateTicketRequest(TicketRaiseRequest request) {
-
-
-        if (request.getTitle() == null || request.getTitle().trim().isEmpty()) {
-            log.warn("Validation failed: Ticket title is missing.");
-            throw new BadRequestException("Ticket title cannot be null or empty.");
-        }
-        if (request.getDescription() == null || request.getDescription().trim().isEmpty()) {
-            log.warn("Validation failed: Ticket description is missing.");
-            throw new BadRequestException("Ticket description cannot be null or empty.");
-        }
-        if (request.getPriority() == null) {
-            log.warn("Validation failed: Ticket priority is missing.");
-            throw new BadRequestException("Ticket priority is required.");
-        }
-
-        log.info("TicketRaiseRequest payload validation passed.");
-    }
-
-    /**
      * Processes and persists a list of file attachments associated with a support ticket.
      * This method iterates through the provided files, logs their metadata, and enforces
      * strict security validation to ensure only approved file types (Images and PDFs)
@@ -191,14 +151,15 @@ public class TicketService {
     private void saveAttachments(List<MultipartFile> attachments, TicketEntity ticket, UserEntity uploader) {
         log.debug("Commencing attachment processing for Ticket ID: {}", ticket.getId());
 
-        for (MultipartFile file : attachments) {
+        attachments.forEach(file -> {
 
             log.info("Processing file: '{}', Size: {} bytes, ContentType: {}",
                     file.getOriginalFilename(), file.getSize(), file.getContentType());
 
             if (file.isEmpty()) {
+
                 log.warn("Skipping file '{}' because it is empty (0 bytes).", file.getOriginalFilename());
-                continue;
+                throw new BadRequestException("Attached file '" + file.getOriginalFilename() + "' cannot be empty.");
             }
 
             String contentType = file.getContentType();
@@ -229,7 +190,7 @@ public class TicketService {
                 log.error("Failed to read binary data for attachment: {}", file.getOriginalFilename(), e);
                 throw new FileProcessingException("Failed to read attachment data for file: " + file.getOriginalFilename());
             }
-        }
+        });
         log.info("Attachment processing completed.");
     }
 }

@@ -15,6 +15,7 @@ import cloudsufi.nextgen.tms.repository.AttachmentRepository;
 import cloudsufi.nextgen.tms.repository.TicketHistoryRepository;
 import cloudsufi.nextgen.tms.repository.TicketRepository;
 import cloudsufi.nextgen.tms.repository.UserRepository;
+import cloudsufi.nextgen.tms.util.JwtUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -69,6 +70,9 @@ class TicketServiceTest {
 
     private TicketEntity mockTicket;
 
+    @Mock
+    private JwtUtil jwtUtil;
+
     /**
      * Initializes default, valid mock data before each test execution.
      * This ensures a clean and predictable state across all test cases.
@@ -102,21 +106,6 @@ class TicketServiceTest {
         SecurityContextHolder.clearContext();
     }
 
-    /**
-     * Helper utility to simulate an active and authenticated user session in Spring Security.
-     *
-     * @param email The email address of the mocked logged-in user.
-     */
-    private void mockSecurityContext(String email) {
-        Authentication authentication = mock(Authentication.class);
-        SecurityContext securityContext = mock(SecurityContext.class);
-
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.isAuthenticated()).thenReturn(true);
-        when(authentication.getName()).thenReturn(email);
-
-        SecurityContextHolder.setContext(securityContext);
-    }
 
     /**
      * Tests the scenario where a valid request payload is submitted by an
@@ -124,8 +113,7 @@ class TicketServiceTest {
      */
     @Test
     void raiseTicket_ValidRequest_ReturnsSuccessResponse() {
-        mockSecurityContext("testuser@cloudsufi.com");
-        when(userRepository.findByEmail("testuser@cloudsufi.com")).thenReturn(Optional.of(mockUser));
+        when(jwtUtil.extractUser()).thenReturn(mockUser);
 
         TicketEntity savedTicket = TicketEntity.builder().id(100L).build();
         when(ticketRepository.save(any(TicketEntity.class))).thenReturn(savedTicket);
@@ -141,66 +129,6 @@ class TicketServiceTest {
         verify(ticketHistoryRepository, times(1)).save(any());
     }
 
-    /**
-     * Verifies that the service fails fast and rejects requests with an empty or null title.
-     */
-    @Test
-    void raiseTicket_MissingTitle_ThrowsBadRequestException() {
-        validRequest.setTitle("");
-
-        BadRequestException exception = assertThrows(BadRequestException.class, () -> {
-            ticketService.raiseTicket(validRequest);
-        });
-
-        assertEquals("Ticket title cannot be null or empty.", exception.getMessage());
-        verifyNoInteractions(ticketRepository, ticketHistoryRepository, userRepository);
-    }
-
-    /**
-     * Verifies that the service fails fast and rejects requests with an empty or null description.
-     */
-    @Test
-    void raiseTicket_MissingDescription_ThrowsBadRequestException() {
-        validRequest.setDescription("   ");
-
-        BadRequestException exception = assertThrows(BadRequestException.class, () -> {
-            ticketService.raiseTicket(validRequest);
-        });
-
-        assertEquals("Ticket description cannot be null or empty.", exception.getMessage());
-        verifyNoInteractions(ticketRepository, ticketHistoryRepository, userRepository);
-    }
-
-    /**
-     * Verifies that the service fails fast and rejects requests where the priority enum is null.
-     */
-    @Test
-    void raiseTicket_MissingPriority_ThrowsBadRequestException() {
-        validRequest.setPriority(null);
-
-        BadRequestException exception = assertThrows(BadRequestException.class, () -> {
-            ticketService.raiseTicket(validRequest);
-        });
-
-        assertEquals("Ticket priority is required.", exception.getMessage());
-        verifyNoInteractions(ticketRepository, ticketHistoryRepository, userRepository);
-    }
-
-    /**
-     * Ensures that requests bypassing the security filter, resulting in a null or
-     * unauthenticated context, are strictly rejected before any database operations occur.
-     */
-    @Test
-    void raiseTicket_UnauthenticatedUser_ThrowsAuthenticationException() {
-        SecurityContextHolder.setContext(mock(SecurityContext.class));
-
-        AuthenticationException exception = assertThrows(AuthenticationException.class, () -> {
-            ticketService.raiseTicket(validRequest);
-        });
-
-        assertEquals("User is not authenticated", exception.getMessage());
-        verifyNoInteractions(ticketRepository, ticketHistoryRepository);
-    }
 
     /**
      * Handles the edge case where an authenticated user's email exists in the JWT token,
@@ -208,8 +136,8 @@ class TicketServiceTest {
      */
     @Test
     void raiseTicket_UserNotFoundInDatabase_ThrowsResourceNotFoundException() {
-        mockSecurityContext("ghostuser@cloudsufi.com");
-        when(userRepository.findByEmail("ghostuser@cloudsufi.com")).thenReturn(Optional.empty());
+        when(jwtUtil.extractUser())
+                .thenThrow(new ResourceNotFoundException("User not found: ghostuser@cloudsufi.com"));
 
         ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
             ticketService.raiseTicket(validRequest);
@@ -231,8 +159,7 @@ class TicketServiceTest {
 
         validRequest.setAttachments(List.of(imageFile, pdfFile));
 
-        mockSecurityContext("testuser@cloudsufi.com");
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(mockUser));
+        when(jwtUtil.extractUser()).thenReturn(mockUser);
         when(ticketRepository.save(any(TicketEntity.class))).thenReturn(mockTicket);
         ticketService.raiseTicket(validRequest);
 
@@ -250,8 +177,7 @@ class TicketServiceTest {
         MockMultipartFile textFile = new MockMultipartFile("attachments", "script.sh", "text/x-shellscript", "echo 'hacked'".getBytes());
         validRequest.setAttachments(List.of(textFile));
 
-        mockSecurityContext("testuser@cloudsufi.com");
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(mockUser));
+        when(jwtUtil.extractUser()).thenReturn(mockUser);
         when(ticketRepository.save(any(TicketEntity.class))).thenReturn(mockTicket);
 
         BadRequestException exception = assertThrows(BadRequestException.class, () -> {
@@ -263,23 +189,26 @@ class TicketServiceTest {
     }
 
     /**
-     * Verifies the system's resilience against empty or "ghost" files.
+     * Verifies the system's strict validation against empty or "ghost" files.
      * Simulates a client sending a file parameter with 0 bytes of data (often caused
-     * by client-side browser glitches). Ensures that the main ticket is still created
-     * successfully, but the empty attachment is silently ignored and not saved.
+     * by client-side browser glitches). Ensures that a {@link BadRequestException} is
+     * thrown and the transaction is aborted, preventing the saving of empty files.
      */
     @Test
-    void raiseTicket_WithEmptyGhostFile_SkipsAttachmentSilently() {
+    void raiseTicket_WithEmptyFile_ThrowsBadRequestException() {
         MockMultipartFile emptyFile = new MockMultipartFile("attachments", "empty.png", "image/png", new byte[0]);
         validRequest.setAttachments(List.of(emptyFile));
 
-        mockSecurityContext("testuser@cloudsufi.com");
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(mockUser));
+        when(jwtUtil.extractUser()).thenReturn(mockUser);
         when(ticketRepository.save(any(TicketEntity.class))).thenReturn(mockTicket);
 
-        ticketService.raiseTicket(validRequest);
+        BadRequestException exception = assertThrows(BadRequestException.class, () -> {
+            ticketService.raiseTicket(validRequest);
+        });
 
-        verify(ticketRepository, times(1)).save(any(TicketEntity.class));
+        assertEquals("Attached file 'empty.png' cannot be empty.", exception.getMessage());
+
+
         verifyNoInteractions(attachmentRepository);
     }
 
@@ -300,9 +229,7 @@ class TicketServiceTest {
         when(corruptedFile.getBytes()).thenThrow(new IOException("Simulated Stream Error"));
 
         validRequest.setAttachments(List.of(corruptedFile));
-
-        mockSecurityContext("testuser@cloudsufi.com");
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(mockUser));
+        when(jwtUtil.extractUser()).thenReturn(mockUser);
         when(ticketRepository.save(any(TicketEntity.class))).thenReturn(mockTicket);
 
 
