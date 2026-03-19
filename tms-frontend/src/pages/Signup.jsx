@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { signUp } from '../services/AuthService';
 
 /**
  * Signup page component
@@ -60,37 +61,30 @@ const Signup = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:8080/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: formData.fullName,
-          email: formData.email,
-          password: formData.password,
-          phoneNo: formData.phoneNo,
-          role: formData.role,
-        }),
+      await signUp({
+        username: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        phoneNo: formData.phoneNo,
+        role: formData.role,
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 409) {
-          // duplicate email or username
-          setError(data.message || 'An account with this email or username already exists.');
-        } else if (response.status === 400) {
-          setError(data.message || 'Please check your details and try again.');
-        } else {
-          setError('Something went wrong. Please try again later.');
-        }
-        return;
-      }
 
       // registration successful — redirect to login
       navigate('/login');
 
     } catch (err) {
-      setError('Unable to connect to the server. Please check your connection.');
+      const status = err.response?.status;
+      const message = err.response?.data?.message;
+
+      if (status === 409) {
+        setError(message || 'An account with this email or username already exists.');
+      } else if (status === 400) {
+        setError(message || 'Please check your details and try again.');
+      } else if (err.request) {
+        setError('Unable to connect to the server. Please check your connection.');
+      } else {
+        setError('Something went wrong. Please try again later.');
+      }
     } finally {
       setIsLoading(false);
     }

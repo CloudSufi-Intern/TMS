@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from 'react-router-dom';
+import { login } from '../services/AuthService';
 
 /**
  * Login page component
@@ -29,33 +30,27 @@ const Login = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:8080/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          setError('Invalid email or password. Please try again.');
-        } else if (response.status === 400) {
-          setError(data.message || 'Please fill in all required fields.');
-        } else {
-          setError('Something went wrong. Please try again later.');
-        }
-        return;
-      }
+      const response = await login(credentials);
 
       // store JWT token for use in secured API calls
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('tokenType', data.tokenType);
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('tokenType', response.data.tokenType);
 
       navigate('/dashboard');
 
     } catch (err) {
-      setError('Unable to connect to the server. Please check your connection.');
+      const status = err.response?.status;
+      const message = err.response?.data?.message;
+
+      if (status === 401) {
+        setError('Invalid email or password. Please try again.');
+      } else if (status === 400) {
+        setError(message || 'Please fill in all required fields.');
+      } else if (err.request) {
+        setError('Unable to connect to the server. Please check your connection.');
+      } else {
+        setError('Something went wrong. Please try again later.');
+      }
     } finally {
       setIsLoading(false);
     }

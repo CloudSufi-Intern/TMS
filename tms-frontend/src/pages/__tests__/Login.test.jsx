@@ -5,7 +5,7 @@ import Login from '../Login';
 
 /**
  * Unit tests for the Login page component.
- * Verifies API integration, error handling, and navigation behaviour.
+ * Verifies AuthService integration, error handling, and navigation behaviour.
  *
  * @author Yashas Yadav
  */
@@ -16,6 +16,12 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return { ...actual, useNavigate: () => mockNavigate };
 });
+
+vi.mock('../../services/AuthService', () => ({
+  login: vi.fn(),
+}));
+
+import { login } from '../../services/AuthService';
 
 const renderLogin = () =>
   render(
@@ -29,19 +35,18 @@ describe('Login Page', () => {
   beforeEach(() => {
     mockNavigate.mockReset();
     localStorage.clear();
-    global.fetch = vi.fn();
+    login.mockReset();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  // ── Happy path ──────────────────────────────────────────────────
+  // Correct path
 
   it('should store JWT in localStorage and navigate to /dashboard on valid credentials', async () => {
-    global.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ token: 'mock.jwt.token', tokenType: 'Bearer' }),
+    login.mockResolvedValueOnce({
+      data: { token: 'mock.jwt.token', tokenType: 'Bearer' },
     });
 
     renderLogin();
@@ -61,10 +66,9 @@ describe('Login Page', () => {
     });
   });
 
-  it('should call POST /api/auth/login with correct payload', async () => {
-    global.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ token: 'tok', tokenType: 'Bearer' }),
+  it('should call AuthService.login with correct credentials', async () => {
+    login.mockResolvedValueOnce({
+      data: { token: 'tok', tokenType: 'Bearer' },
     });
 
     renderLogin();
@@ -78,25 +82,17 @@ describe('Login Page', () => {
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8080/api/auth/login',
-        expect.objectContaining({
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: 'yashas@cs.com', password: 'password123' }),
-        })
-      );
+      expect(login).toHaveBeenCalledWith({
+        email: 'yashas@cs.com',
+        password: 'password123',
+      });
     });
   });
 
-  // ── Error handling ──────────────────────────────────────────────
+  // Error handling
 
   it('should show "Invalid email or password" on 401 response', async () => {
-    global.fetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      json: async () => ({ message: 'Invalid email or password.' }),
-    });
+    login.mockRejectedValueOnce({ response: { status: 401, data: { message: 'Invalid email or password.' } } });
 
     renderLogin();
 
@@ -117,11 +113,7 @@ describe('Login Page', () => {
   });
 
   it('should show backend message on 400 response', async () => {
-    global.fetch.mockResolvedValueOnce({
-      ok: false,
-      status: 400,
-      json: async () => ({ message: 'password: must not be blank' }),
-    });
+    login.mockRejectedValueOnce({ response: { status: 400, data: { message: 'password: must not be blank' } } });
 
     renderLogin();
 
@@ -138,8 +130,8 @@ describe('Login Page', () => {
     });
   });
 
-  it('should show connection error when fetch throws (server down)', async () => {
-    global.fetch.mockRejectedValueOnce(new Error('Network Error'));
+  it('should show connection error when server is unreachable', async () => {
+    login.mockRejectedValueOnce({ request: {} });
 
     renderLogin();
 
@@ -158,14 +150,10 @@ describe('Login Page', () => {
     });
   });
 
-  // ── UI behaviour ────────────────────────────────────────────────
+  // UI behaviour
 
   it('should clear error message when user starts typing after a failure', async () => {
-    global.fetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      json: async () => ({ message: 'Invalid email or password.' }),
-    });
+    login.mockRejectedValueOnce({ response: { status: 401, data: {} } });
 
     renderLogin();
 
@@ -189,10 +177,8 @@ describe('Login Page', () => {
   });
 
   it('should show "Signing In..." and disable button while loading', async () => {
-    let resolveFetch;
-    global.fetch.mockReturnValueOnce(
-      new Promise((resolve) => { resolveFetch = resolve; })
-    );
+    let resolveFn;
+    login.mockReturnValueOnce(new Promise((resolve) => { resolveFn = resolve; }));
 
     renderLogin();
 
@@ -209,6 +195,7 @@ describe('Login Page', () => {
       expect(btn).toBeDisabled();
     });
 
-    resolveFetch({ ok: true, json: async () => ({ token: 't', tokenType: 'Bearer' }) });
+    resolveFn({ data: { token: 't', tokenType: 'Bearer' } });
   });
 });
+
