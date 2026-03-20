@@ -1,0 +1,116 @@
+import { useState } from 'react';
+
+const defaultForm = { title: '', desc: '', priority: 'medium', category: 'Hardware' };
+
+/**
+ * Modal dialog for creating a new ticket
+ * @param {boolean} isOpen - Controls modal visibility
+ * @param {function} onClose - Close handler
+ * @param {function} onSubmit - Submit handler, receives form data
+ * @param {function} onError - Error toast trigger
+ * @author-Smriti Bajpai
+ */
+const CreateTicketModal = ({ isOpen, onClose, onSubmit, onError }) => {
+  const [form, setForm] = useState(defaultForm);
+
+  const handleChange = (e) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = () => {
+    if (!form.title.trim() || !form.desc.trim()) {
+      onError('Please fill in all required fields');
+      return;
+    }
+    onSubmit(form);
+    setForm(defaultForm);
+    onClose();
+  };
+
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  return (
+    <div className={`modal-overlay ${isOpen ? 'open' : ''}`} onClick={handleOverlayClick}>
+      <div className="modal">
+        {/* Header */}
+        <div className="modal-header">
+          <h2 className="modal-title">Create New Ticket</h2>
+          <button className="btn-close" onClick={onClose}>
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="modal-body">
+          <div className="form-group">
+            <label>Ticket Title <span>*</span></label>
+            <input
+              name="title"
+              className="form-input"
+              placeholder="Brief description of the issue"
+              value={form.title}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Description <span>*</span></label>
+            <textarea
+              name="desc"
+              className="form-textarea"
+              placeholder="Provide detailed information about the issue..."
+              value={form.desc}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label>Priority <span>*</span></label>
+              <select name="priority" className="form-select" value={form.priority} onChange={handleChange}>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Category <span>*</span></label>
+              <select name="category" className="form-select" value={form.category} onChange={handleChange}>
+                <option value="Hardware">Hardware</option>
+                <option value="Software">Software</option>
+                <option value="Account">Account</option>
+                <option value="Network">Network</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Attachments</label>
+            <div className="upload-zone" onClick={() => document.getElementById('fileInput').click()}>
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+              <p><span>Click to upload</span> or drag and drop</p>
+              <small>PNG, JPG, PDF up to 10MB</small>
+              <input type="file" id="fileInput" style={{ display: 'none' }} multiple accept=".png,.jpg,.jpeg,.pdf" />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="modal-footer">
+          <button className="btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="btn-submit" onClick={handleSubmit}>Create Ticket</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CreateTicketModal;

@@ -23,6 +23,17 @@ const Login = () => {
       e.preventDefault();
       console.log("Frontend captured these Login Credentials:", credentials);
       alert("Login UI working! Backend connection pending.");
+
+      if(!credentials.email||!credentials.password){
+          setError("please fill all fields");
+          }
+      setIsLoading(true);
+
+      /* Simulating API delay */
+        setTimeout(() => {
+          setIsLoading(false);
+          navigate('/dashboard');
+        }, 800);
   };
 
   return (
