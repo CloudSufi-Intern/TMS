@@ -118,6 +118,19 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles FileProcessingException and returns 500 Internal Server Error status
+     *
+     * @param ex        The intercepted FileProcessingException
+     * @param request   The current HTTP request
+     * @return          ResponseEntity containing the structured ErrorResponse and 500 status
+     */
+    @ExceptionHandler(FileProcessingException.class)
+    public ResponseEntity<ErrorResponseDTO> handleFileProcessingException(FileProcessingException ex, HttpServletRequest request) {
+        log.error("FileProcessingException handled: ", ex);
+        return new ResponseEntity<>(createErrorResponse(ex.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, request), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    /**
      * Utility method for mapping standard attributes to the JSON DTO mapping structure
      *
      * @param message   The error message to be displayed

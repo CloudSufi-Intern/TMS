@@ -1,9 +1,15 @@
 package cloudsufi.nextgen.tms.util;
 
+import cloudsufi.nextgen.tms.entity.UserEntity;
+import cloudsufi.nextgen.tms.exception.ResourceNotFoundException;
+import cloudsufi.nextgen.tms.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -20,6 +26,8 @@ import java.util.Date;
  * @author Ansh Parnami
  */
 @Component
+@Slf4j
+@RequiredArgsConstructor
 public class JwtUtil {
 
     @Value("${jwt.secret}")
@@ -27,6 +35,9 @@ public class JwtUtil {
 
     @Value("${jwt.expiration}")
     private long jwtExpiration;
+
+    private final UserRepository userRepository;
+
 
     /**
      * Generates a secure cryptographic Key object used for signing and verifying JWTs.
@@ -90,5 +101,31 @@ public class JwtUtil {
                 .getBody();
 
         return claims.getSubject();
+    }
+    /**
+     * Extracts the currently authenticated user from the Spring Security context
+     * and retrieves their corresponding entity record from the database.
+     * This method relies on the security filter chain having already authenticated
+     * the request and populated the context. It uses the authenticated principal's
+     * name (which is mapped to the user's email) to perform the database lookup.
+     *
+     * @return The {@link UserEntity} representing the currently logged-in user.
+     * @throws ResourceNotFoundException If the authenticated email from the token
+     * does not exist in the database.
+     */
+    public UserEntity extractUser(){
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+
+
+        String email = authentication.getName();
+        log.debug("Looking up user entity for email: {}", email);
+
+        UserEntity user = userRepository.findByEmail(email)
+                .orElseThrow(() -> {
+                    log.error("User not found {}", email);
+                    return new ResourceNotFoundException("User not found: " + email);
+                });
+
+        return user;
     }
 }
