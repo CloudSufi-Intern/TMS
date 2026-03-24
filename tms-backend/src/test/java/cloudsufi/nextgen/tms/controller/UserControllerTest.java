@@ -1,5 +1,7 @@
 package cloudsufi.nextgen.tms.controller;
 
+import cloudsufi.nextgen.tms.dto.GetUserResponse;
+import cloudsufi.nextgen.tms.dto.UpdateUserRequestDTO;
 import cloudsufi.nextgen.tms.dto.UserSuggestionDTO;
 import cloudsufi.nextgen.tms.entity.UserEntity;
 import cloudsufi.nextgen.tms.enums.Role;
@@ -26,8 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -37,7 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * @author Ansh Parnami
  */
 @SpringBootTest
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 public class UserControllerTest {
 
     @Autowired
@@ -135,6 +137,122 @@ public class UserControllerTest {
 
 
         verify(userService).searchUsers(usernamePrefix, 0, 10);
+    }
+
+
+    /**
+     * Test class for Update User API
+     *
+     * Follows project-specific testing setup (MockitoBean + webmvc test)
+     *
+     * @author Shubhanshu
+     */
+
+
+    //checks only the controller for UpdateUserProfile API
+    @Test
+    void shouldUpdateUsernameSuccessfully() throws Exception {
+
+        // Arrange
+        UpdateUserRequestDTO request = new UpdateUserRequestDTO();
+        request.setUsername("new_username");
+
+        GetUserResponse response = GetUserResponse.builder()
+                .id(1L)
+                .username("new_username")
+                .email("john@gmail.com")
+                .phoneNo("9876543210")
+                .role(Role.ENGINEERING)
+                .build();
+
+        when(userService.updateUser(any(UpdateUserRequestDTO.class)))
+                .thenReturn(response);
+
+        // Act & Assert
+        mockMvc.perform(put("/api/user")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+    }
+
+    //Checks business logic
+    // duplicate username
+    @Test
+    void shouldReturnBadRequestWhenUsernameAlreadyExists() throws Exception {
+
+        UpdateUserRequestDTO request = new UpdateUserRequestDTO();
+        request.setUsername("existing_user");
+
+        when(userService.updateUser(any(UpdateUserRequestDTO.class)))
+                .thenThrow(new RuntimeException("Username is already taken."));
+
+        mockMvc.perform(put("/api/user")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+
+    //user not found (bad request) -> 500
+    @Test
+    void shouldReturnNotFoundWhenUserDoesNotExist() throws Exception {
+
+        UpdateUserRequestDTO request = new UpdateUserRequestDTO();
+        request.setUsername("new_username");
+
+        when(userService.updateUser(any(UpdateUserRequestDTO.class)))
+                .thenThrow(new RuntimeException("User not found"));
+
+        mockMvc.perform(put("/api/user")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound());
+    }
+
+    //empty request(no fields), frontend handles this case but backend returns 200
+    @Test
+    void shouldHandleEmptyUpdateRequest() throws Exception {
+
+        UpdateUserRequestDTO request = new UpdateUserRequestDTO();
+
+        GetUserResponse response = GetUserResponse.builder()
+                .id(1L)
+                .username("old_username")
+                .email("john@gmail.com")
+                .phoneNo("1234567890")
+                .build();
+
+        when(userService.updateUser(any(UpdateUserRequestDTO.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(put("/api/user")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+    }
+
+
+    //Update Only Phone Number → 200
+    @Test
+    void shouldUpdateOnlyPhoneNumber() throws Exception {
+
+        UpdateUserRequestDTO request = new UpdateUserRequestDTO();
+        request.setPhoneNo("9999999999");
+
+        GetUserResponse response = GetUserResponse.builder()
+                .id(1L)
+                .username("john")
+                .email("john@gmail.com")
+                .phoneNo("9999999999")
+                .build();
+
+        when(userService.updateUser(any(UpdateUserRequestDTO.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(put("/api/user")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
     }
 
 

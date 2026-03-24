@@ -1,6 +1,7 @@
 package cloudsufi.nextgen.tms.service;
 
 import cloudsufi.nextgen.tms.dto.GetUserResponse;
+import cloudsufi.nextgen.tms.dto.UpdateUserRequestDTO;
 import cloudsufi.nextgen.tms.dto.UserRequestDTO;
 import cloudsufi.nextgen.tms.dto.UserSuggestionDTO;
 import cloudsufi.nextgen.tms.entity.UserEntity;
@@ -16,6 +17,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
@@ -276,6 +280,152 @@ class UserServiceTest {
 
 
         verify(userRepository, never()).searchUsers(anyString(), any());
+    }
+
+
+    /**
+     * Verifies that the service updates username successfully.
+     *
+     * @author Shubhanshu
+     */
+
+    private void mockAuthenticatedUser(String email) {
+        Authentication authentication = mock(Authentication.class);
+        when(authentication.getName()).thenReturn(email);
+
+        SecurityContext securityContext = mock(SecurityContext.class);
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+
+        SecurityContextHolder.setContext(securityContext);
+    }
+
+
+    @Test
+    @DisplayName("Service - Should update username successfully")
+    void updateUser_whenValidUsername_shouldUpdateSuccessfully() {
+
+        //  Mock Security Context
+        mockAuthenticatedUser("john@gmail.com");
+
+        // Arrange
+        when(userRepository.findByEmail("john@gmail.com"))
+                .thenReturn(Optional.of(mockUser));
+
+        when(userRepository.existsByUsername("new_username"))
+                .thenReturn(false);
+
+        when(userRepository.save(any(UserEntity.class)))
+                .thenReturn(mockUser);
+
+        UpdateUserRequestDTO request = new UpdateUserRequestDTO();
+        request.setUsername("new_username");
+
+        // Act
+        GetUserResponse response = userService.updateUser(request);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals("new_username", mockUser.getUsername());
+
+        verify(userRepository).save(mockUser);
+    }
+
+    /**
+     * Verifies that exception is thrown when username already exists.
+     *
+     * @author Shubhanshu
+     */
+    @Test
+    @DisplayName("Service - Should throw exception when username already exists")
+    void updateUser_whenUsernameExists_shouldThrowException() {
+
+        // Mock Security Context (JWT simulation)
+        mockAuthenticatedUser("john@gmail.com");
+
+        // Arrange
+        when(userRepository.findByEmail("john@gmail.com"))
+                .thenReturn(Optional.of(mockUser));
+
+        when(userRepository.existsByUsername("existing_user"))
+                .thenReturn(true);
+
+        UpdateUserRequestDTO request = new UpdateUserRequestDTO();
+        request.setUsername("existing_user");
+
+        // Act & Assert
+        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+                userService.updateUser(request)
+        );
+
+        assertTrue(exception.getMessage().contains("Username is already taken"));
+
+        verify(userRepository, never()).save(any());
+
+        // Cleanup
+        SecurityContextHolder.clearContext();
+    }
+
+    /**
+     * Verifies that exception is thrown when user is not found.
+     *
+     * @author Shubhanshu
+     */
+    @Test
+    @DisplayName("Service - Should throw exception when user not found")
+    void updateUser_whenUserNotFound_shouldThrowException() {
+
+        // Mock Security Context
+        mockAuthenticatedUser("john@gmail.com");
+
+        // Arrange
+        when(userRepository.findByEmail("john@gmail.com"))
+                .thenReturn(Optional.empty());
+
+        UpdateUserRequestDTO request = new UpdateUserRequestDTO();
+        request.setUsername("new_username");
+
+        // Act & Assert
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () ->
+                userService.updateUser(request)
+        );
+
+        assertTrue(exception.getMessage().contains("User not found"));
+
+        // 🧹 Cleanup
+        SecurityContextHolder.clearContext();
+    }
+
+    /**
+     * Verifies that no changes still results in successful save (as per current design).
+     *
+     * @author Shubhanshu
+     */
+    @Test
+    @DisplayName("Service - Should handle empty update request")
+    void updateUser_whenNoFieldsProvided_shouldStillSucceed() {
+
+        // Mock Security Context
+        mockAuthenticatedUser("john@gmail.com");
+
+        // Arrange
+        when(userRepository.findByEmail("john@gmail.com"))
+                .thenReturn(Optional.of(mockUser));
+
+        when(userRepository.save(any(UserEntity.class)))
+                .thenReturn(mockUser);
+
+        UpdateUserRequestDTO request = new UpdateUserRequestDTO();
+
+        // Act
+        GetUserResponse response = userService.updateUser(request);
+
+        // Assert
+        assertNotNull(response);
+
+        verify(userRepository).save(mockUser);
+
+        // Cleanup
+        SecurityContextHolder.clearContext();
     }
 
 }
