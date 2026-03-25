@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const defaultForm = { title: '', desc: '', priority: 'medium', category: 'Hardware' };
+const defaultForm = { title: '', desc: '', priority: 'MEDIUM', category: 'HARDWARE' };
 
 /**
  * Modal dialog for creating a new ticket
@@ -10,16 +10,27 @@ const defaultForm = { title: '', desc: '', priority: 'medium', category: 'Hardwa
  * @param {function} onError - Error toast trigger
  * @author-Smriti Bajpai
  */
+
+/**
+ * Processes the form submission before sending it to the parent component.
+ * * [Ticket Update]: Added strict client-side validation for the 'priority' field
+ * to ensure it perfectly mirrors backend constraints and prevents unnecessary API errors.
+ * * @author Priyanshu Gupta
+ */
+
+
 const CreateTicketModal = ({ isOpen, onClose, onSubmit, onError }) => {
-  const [form, setForm] = useState(defaultForm);
+    const [form, setForm] = useState(defaultForm);
+
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = () => {
-    if (!form.title.trim() || !form.desc.trim()) {
-      onError('Please fill in all required fields');
+      console.log("REACT THINKS THE DATA IS:", form);
+    if (!form.title?.trim() || !form.desc?.trim() || !form.priority) {
+      onError('Please fill in all required fields (Title, Description, and Priority)');
       return;
     }
     onSubmit(form);
@@ -72,9 +83,9 @@ const CreateTicketModal = ({ isOpen, onClose, onSubmit, onError }) => {
             <div className="form-group">
               <label>Priority <span>*</span></label>
               <select name="priority" className="form-select" value={form.priority} onChange={handleChange}>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
               </select>
             </div>
             <div className="form-group">
