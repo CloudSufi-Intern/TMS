@@ -6,6 +6,15 @@
  * @author Smriti Bajpai
  */
 
+ /**
+  * Executes the API call to create a new ticket in the backend database.
+  * * [Ticket Update]: Replaced frontend mock data with a real asynchronous fetch request.
+  * Implemented FormData construction to correctly handle text fields and file attachments.
+  * Mapped frontend state variables to exactly match backend DTO requirements.
+  * * @param {Object} formData - The ticket details from the UI modal
+  * @author Priyanshu Gupta
+  */
+
 import { useState } from 'react';
 import { initialTickets } from '../data/tickets';
 
@@ -68,24 +77,39 @@ export const useTickets = () => {
     resolved:         tickets.filter((t) => t.status === 'resolved').length,
   };
 
-  const createTicket = ({ title, desc, priority, category }) => {
-    const newTicket = {
-      id: Date.now(),       /* Temporary ID , Real one wil be supplied by backend*/
-      title,
-      desc,
-      status: 'open',
-      priority,
-      category,
-      assignedTo: 'Unassigned',
-      creator: 'Employee',  /* TODO: replace with auth context user name */
-      comments: 0,
-      files: 0,
-      hasNotif: false,
-    };
+  const createTicket = async ({ title, desc, priority, category, files }) => {
+      try {
+          const formData = new FormData();
+          formData.append('title', title);
+          formData.append('description', desc);
+          formData.append('priority', priority || 'MEDIUM');
 
-    setTickets((prev) => [newTicket, ...prev]);
+          if (files && files.length > 0) {
+              for (let i = 0; i < files.length; i++) {
+                  formData.append('attachments', files[i]);
+              }
+          }
+          const token = localStorage.getItem('token');
+          const response = await fetch('http://localhost:8080/api/tickets', {
+              method: 'POST',
+              headers: {
+                  'Authorization': `Bearer ${token}`
+
+              },
+              body: formData
+          });
+          if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.message || 'Validation failed or server error');
+          }
+          const savedTicket = await response.json();
+          setTickets((prev) => [...prev, savedTicket]);
+
+      } catch (error) {
+          console.error("Error creating ticket:", error);
+          throw error;
+      }
   };
-
   return {
     tickets: filteredTickets,
     stats,
@@ -94,5 +118,6 @@ export const useTickets = () => {
     statusFilter,
     setStatusFilter,
     createTicket,
-    };
-    };
+
+   }
+  };

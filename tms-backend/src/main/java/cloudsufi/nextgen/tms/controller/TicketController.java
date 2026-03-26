@@ -3,6 +3,7 @@ package cloudsufi.nextgen.tms.controller;
 import cloudsufi.nextgen.tms.dto.TicketRaiseRequest;
 import cloudsufi.nextgen.tms.dto.TicketRaiseResponse;
 import cloudsufi.nextgen.tms.service.TicketService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -34,8 +35,17 @@ public class TicketController {
      * @author Ansh Parnami
      */
 
+    /**
+     * Endpoint to raise a new support ticket.
+     * * [Ticket Update]: Integrated strict request validation using @Valid.
+     * Updated parameter binding to @ModelAttribute to correctly consume
+     * multipart/form-data, allowing seamless frontend integration with file attachments.
+     * * @param request The validated ticket details including optional files
+     * @author Priyanshu Gupta
+     */
+
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<TicketRaiseResponse> raiseTicket(@ModelAttribute TicketRaiseRequest request) {
+    public ResponseEntity<TicketRaiseResponse> raiseTicket(@Valid @ModelAttribute TicketRaiseRequest request) {
         log.info("REST request received to raise a new ticket with title: '{}'", request.getTitle());
         TicketRaiseResponse response = ticketService.raiseTicket(request);
 
