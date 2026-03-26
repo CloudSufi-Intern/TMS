@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { initialTickets } from '../data/tickets';
+import { useTicketContext } from "../context/TicketContext";
 
 /**
  * @property {Ticket[]}  tickets        - The filtered list of tickets to display in the UI
@@ -29,7 +30,7 @@ export const useTickets = () => {
    * Master list of all tickets in the system.
    * Initialized with mock data.
    */
-  const [tickets, setTickets] = useState(initialTickets);
+  const { tickets } = useTicketContext();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 

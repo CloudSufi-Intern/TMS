@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { initialTickets } from '../data/tickets';
+import { useTicketContext } from "../context/TicketContext";
 import '../ticketDetails.css';
 
 /**
@@ -13,7 +13,10 @@ import '../ticketDetails.css';
 const TicketDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  const foundTicket = initialTickets.find((t) => String(t.id) === String(id));
+  const { tickets,updateTicketStatus } = useTicketContext();
+  const foundTicket = tickets.find(
+    (t) => String(t.id) === String(id)
+  );
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState(foundTicket?.commentsList || []);
   const [status, setStatus] = useState(foundTicket?.status || 'open');
@@ -30,8 +33,7 @@ const TicketDetail = () => {
 
   /** Closing the ticket and redirecting to the dashboard page */
   const closeTicketHandler = () => {
-    showToast('Ticket closing successfully');
-    setTimeout(() => navigate('/dashboard'), 1000);
+    setTimeout(() => navigate('/dashboard'), 100);
   };
 
   /*
@@ -73,10 +75,14 @@ const TicketDetail = () => {
   };
 
   /** Updates ticket status locally — wire to PATCH /api/tickets/:id when backend ready */
-  const handleStatusChange = (e) => {
-    setStatus(e.target.value);
-    showToast(`Status updated to "${e.target.value}"`);
-  };
+const handleStatusChange = (e) => {
+  const newStatus = e.target.value;
+
+  setStatus(newStatus);
+  updateTicketStatus(id, newStatus);
+
+  showToast(`Status updated to "${newStatus}"`);
+};
 
   /** Quick action handlers — wire to respective API calls when backend ready */
   const handleQuickAction = (action) => {
@@ -384,21 +390,9 @@ const TicketDetail = () => {
 
           {/* Quick Actions Card */}
           <div className="td-card">
-            <h2 className="td-section-title">Quick Actions</h2>
-            <div className="td-actions-list">
-              <button className="td-action-btn" onClick={() => handleQuickAction('Reassign Ticket')}>
-                Reassign Ticket
-              </button>
-              <button className="td-action-btn" onClick={() => handleQuickAction('Change Priority')}>
-                Change Priority
-              </button>
-              <button className="td-action-btn" onClick={() => handleQuickAction('Add to Watch List')}>
-                Add to Watch List
-              </button>
               <button className="td-action-btn td-action-danger" onClick={closeTicketHandler}>
                 Close Ticket
               </button>
-            </div>
           </div>
 
         </div>
