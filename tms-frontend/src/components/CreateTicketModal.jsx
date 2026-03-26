@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const defaultForm = { title: '', desc: '', priority: 'MEDIUM', category: 'HARDWARE' };
+const defaultForm = { title: '', desc: '', priority: 'MEDIUM', files: [] };
 
 /**
  * Modal dialog for creating a new ticket
@@ -42,6 +42,10 @@ const CreateTicketModal = ({ isOpen, onClose, onSubmit, onError }) => {
     if (e.target === e.currentTarget) onClose();
   };
 
+const handleFileChange = (e) => {
+  setForm((prev) => ({ ...prev, files: Array.from(e.target.files) }));
+};
+
   return (
     <div className={`modal-overlay ${isOpen ? 'open' : ''}`} onClick={handleOverlayClick}>
       <div className="modal">
@@ -79,26 +83,16 @@ const CreateTicketModal = ({ isOpen, onClose, onSubmit, onError }) => {
             />
           </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label>Priority <span>*</span></label>
-              <select name="priority" className="form-select" value={form.priority} onChange={handleChange}>
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Category <span>*</span></label>
-              <select name="category" className="form-select" value={form.category} onChange={handleChange}>
-                <option value="Hardware">Hardware</option>
-                <option value="Software">Software</option>
-                <option value="Account">Account</option>
-                <option value="Network">Network</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-          </div>
+         <div className="form-group">
+           <label>Priority <span>*</span></label>
+           <select name="priority" className="form-select" value={form.priority} onChange={handleChange}>
+             <option value="LOW">Low</option>
+             <option value="MEDIUM">Medium</option>
+             <option value="HIGH">High</option>
+           </select>
+         </div>
+
+
 
           <div className="form-group">
             <label>Attachments</label>
@@ -109,7 +103,12 @@ const CreateTicketModal = ({ isOpen, onClose, onSubmit, onError }) => {
               </svg>
               <p><span>Click to upload</span> or drag and drop</p>
               <small>PNG, JPG, PDF up to 10MB</small>
-              <input type="file" id="fileInput" style={{ display: 'none' }} multiple accept=".png,.jpg,.jpeg,.pdf" />
+              {form.files.length > 0 && (
+                <ul style={{ marginTop: '8px', fontSize: '12px' }}>
+                  {form.files.map((f, i) => <li key={i}>📎 {f.name}</li>)}
+                </ul>
+              )}
+             <input type="file" id="fileInput" style={{ display: 'none' }} multiple accept=".png,.jpg,.jpeg,.pdf" onChange={handleFileChange} />
             </div>
           </div>
         </div>
