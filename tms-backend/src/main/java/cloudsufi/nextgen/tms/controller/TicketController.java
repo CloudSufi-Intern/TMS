@@ -1,5 +1,6 @@
 package cloudsufi.nextgen.tms.controller;
 
+import cloudsufi.nextgen.tms.dto.TicketDetailsResponse;
 import cloudsufi.nextgen.tms.dto.TicketRaiseRequest;
 import cloudsufi.nextgen.tms.dto.TicketRaiseResponse;
 import cloudsufi.nextgen.tms.service.TicketService;
@@ -40,5 +41,17 @@ public class TicketController {
         TicketRaiseResponse response = ticketService.raiseTicket(request);
 
         return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    /**
+     * Retrieves the complete details of a specific ticket, including its history and attachments.
+     * * @param id The ID of the ticket to retrieve.
+     * @return 200 OK with the TicketDetailsResponse payload.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<TicketDetailsResponse> getTicketById(@PathVariable("id") Long id) {
+        log.info("REST request to get Ticket ID: {}", id);
+        TicketDetailsResponse response = ticketService.getTicketById(id);
+        return ResponseEntity.ok(response);
     }
 }
