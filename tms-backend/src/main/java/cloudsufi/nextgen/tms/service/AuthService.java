@@ -79,6 +79,7 @@ public class AuthService {
      *
      * @param request DTO containing login credentials
      * @return {@link LoginResponseDTO} containing the signed JWT token
+     * [update] now populating new fields int the DTO
      * @throws AuthenticationException if email is not found or password does not match
      */
     public LoginResponseDTO login(LoginRequestDTO request) {
@@ -103,6 +104,11 @@ public class AuthService {
         return LoginResponseDTO.builder()
                 .token(token)
                 .tokenType("Bearer")
+                .role(user.getRole())
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .phoneNo(user.getPhoneNo())
                 .build();
     }
 }
