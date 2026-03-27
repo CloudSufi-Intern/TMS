@@ -103,6 +103,7 @@ public class AuthService {
         return LoginResponseDTO.builder()
                 .token(token)
                 .tokenType("Bearer")
+                .role(user.getRole().name())
                 .build();
     }
 }

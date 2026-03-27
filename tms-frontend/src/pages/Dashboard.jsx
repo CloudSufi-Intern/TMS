@@ -35,6 +35,7 @@ import { useToast } from '../hooks/useToast';
 const Dashboard = () => {
   const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
+  const role = localStorage.getItem('role');
   const { tickets, stats, search, setSearch, statusFilter, setStatusFilter, createTicket } = useTickets();
   const { toast, showToast } = useToast();
 
@@ -61,7 +62,7 @@ const Dashboard = () => {
       <Header onLogout={handleLogout} />
 
       <main className="main">
-        <StatsGrid stats={stats} />
+       <StatsGrid stats={stats} role={role} />
 
         <Toolbar
           search={search}
