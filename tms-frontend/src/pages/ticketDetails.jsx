@@ -319,8 +319,8 @@ const handleStatusChange = (e) => {
                 </div>
                 <div>
                   <div className="td-info-label">Created By</div>
-                  <div className="td-info-name">{ticket.createdBy.name}</div>
-                  <div className="td-info-email">{ticket.createdBy.email}</div>
+                 <div className="td-info-name">{ticket.creator || "Unknown"}</div>
+                 <div className="td-info-email">N/A</div>
                 </div>
               </div>
 
@@ -334,8 +334,8 @@ const handleStatusChange = (e) => {
                 </div>
                 <div>
                   <div className="td-info-label">Assigned To</div>
-                  <div className="td-info-name">{ticket.assignedToDetail.name}</div>
-                  <div className="td-info-email">{ticket.assignedToDetail.email}</div>
+               <div className="td-info-name">{ticket.assignedTo || "Unassigned"}</div>
+               <div className="td-info-email">N/A</div>
                 </div>
               </div>
 

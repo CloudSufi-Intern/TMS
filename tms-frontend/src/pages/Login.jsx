@@ -86,6 +86,8 @@ const Login = () => {
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('tokenType', response.data.tokenType);
 
+      localStorage.setItem("userName", response.data.user.username);
+
       navigate('/dashboard');
 
     } catch (err) {
