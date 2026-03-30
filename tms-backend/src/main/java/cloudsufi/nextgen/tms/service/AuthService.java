@@ -104,7 +104,7 @@ public class AuthService {
         return LoginResponseDTO.builder()
                 .token(token)
                 .tokenType("Bearer")
-<<<<<<< HEAD
+
         return LoginResponseDTO.builder()
                 .token(token)
                 .tokenType("Bearer")
@@ -114,7 +114,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .phoneNo(user.getPhoneNo())
                 .build();
->>>>>>> origin/develop
+
 
     }
 }

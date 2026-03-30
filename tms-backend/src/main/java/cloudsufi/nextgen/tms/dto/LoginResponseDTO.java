@@ -23,7 +23,7 @@ public class LoginResponseDTO {
 
     private String tokenType;
 
-<<<<<<< HEAD
+
     private Long id;
 
     private String username;
@@ -37,6 +37,6 @@ public class LoginResponseDTO {
      * @see cloudsufi.nextgen.tms.enums.Role
      */
     private Role role;
->>>>>>> origin/develop
+
 
 }
