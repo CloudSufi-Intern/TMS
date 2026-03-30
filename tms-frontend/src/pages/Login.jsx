@@ -33,8 +33,9 @@ const Login = () => {
       const response = await login(credentials);
 
       // store JWT token for use in secured API calls
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('tokenType', response.data.tokenType);
+     localStorage.setItem('token', response.data.token);
+     localStorage.setItem('tokenType', response.data.tokenType);
+     localStorage.setItem('role', response.data.role);
 
       navigate('/dashboard');
 

@@ -104,11 +104,17 @@ public class AuthService {
         return LoginResponseDTO.builder()
                 .token(token)
                 .tokenType("Bearer")
+
+        return LoginResponseDTO.builder()
+                .token(token)
+                .tokenType("Bearer")
                 .role(user.getRole())
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .phoneNo(user.getPhoneNo())
                 .build();
+
+
     }
 }
