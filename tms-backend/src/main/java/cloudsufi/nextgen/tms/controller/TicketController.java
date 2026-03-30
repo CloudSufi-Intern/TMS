@@ -49,10 +49,23 @@ public class TicketController {
      * @author Priyanshu Gupta
      */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<TicketRaiseResponse> raiseTicket(@Valid @ModelAttribute TicketRaiseRequest request) {
+    public ResponseEntity<TicketRaiseResponse> raiseTicket(@ModelAttribute TicketRaiseRequest request) {
         log.info("REST request received to raise a new ticket with title: '{}'", request.getTitle());
         TicketRaiseResponse response = ticketService.raiseTicket(request);
+
         return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    /**
+     * Retrieves the complete details of a specific ticket, including its history and attachments.
+     * * @param id The ID of the ticket to retrieve.
+     * @return 200 OK with the TicketDetailsResponse payload.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<TicketDetailsResponse> getTicketById(@PathVariable("id") Long id) {
+        log.info("REST request to get Ticket ID: {}", id);
+        TicketDetailsResponse response = ticketService.getTicketById(id);
+        return ResponseEntity.ok(response);
     }
 
     /**
