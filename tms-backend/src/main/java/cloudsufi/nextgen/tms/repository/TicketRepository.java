@@ -5,6 +5,7 @@ import cloudsufi.nextgen.tms.entity.UserEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import cloudsufi.nextgen.tms.enums.Status;
 
 import java.util.List;
 
@@ -35,4 +36,5 @@ public interface TicketRepository extends JpaRepository<TicketEntity, Long> {
             ORDER BY t.createdAt DESC
             """)
     List<TicketEntity> findAllByCreatedByOrAssignedTo(@Param("user") UserEntity user);
+    long countByStatus(cloudsufi.nextgen.tms.enums.Status status);
 }
