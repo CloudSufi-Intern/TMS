@@ -1,5 +1,6 @@
 package cloudsufi.nextgen.tms.service;
 
+import cloudsufi.nextgen.tms.dto.TicketDetailsResponse;
 import cloudsufi.nextgen.tms.dto.TicketRaiseRequest;
 import cloudsufi.nextgen.tms.dto.TicketRaiseResponse;
 import cloudsufi.nextgen.tms.dto.TicketResponseDTO;
