@@ -101,9 +101,6 @@ public class AuthService {
 
         log.info("Login successful for email: {}", request.getEmail());
 
-        return LoginResponseDTO.builder()
-                .token(token)
-                .tokenType("Bearer")
 
         return LoginResponseDTO.builder()
                 .token(token)
