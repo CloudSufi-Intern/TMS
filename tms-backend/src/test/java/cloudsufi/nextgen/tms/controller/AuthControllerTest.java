@@ -48,8 +48,7 @@ public class AuthControllerTest {
     @MockitoBean
     private UserRepository userRepository;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * Verifies that the Controller returns 201 Created on a valid sign-up request.

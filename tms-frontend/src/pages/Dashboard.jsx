@@ -40,8 +40,11 @@ const Dashboard = () => {
   const { toast, showToast } = useToast();
 
   const handleLogout = () => {
+      /**bug for the issue "tokens not getting deleted on logout"fixed*/
+      localStorage.removeItem('token');
+      localStorage.removeItem('tokenType');
     showToast('Logged out successfully');
-    setTimeout(() => navigate('/login'), 1000);
+    setTimeout(() => navigate('/login'), {replace:true});
   };
 
   const handleCreateTicket = async (formData) => {
