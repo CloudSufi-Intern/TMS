@@ -1,5 +1,6 @@
 package cloudsufi.nextgen.tms.service;
 
+import cloudsufi.nextgen.tms.dto.TicketDetailsResponse;
 import cloudsufi.nextgen.tms.dto.TicketRaiseRequest;
 import cloudsufi.nextgen.tms.dto.TicketRaiseResponse;
 import cloudsufi.nextgen.tms.entity.*;
@@ -192,5 +193,80 @@ public class TicketService {
             }
         });
         log.info("Attachment processing completed.");
+    }
+
+
+
+    /**
+     * Retrieves comprehensive details of a ticket by its unique ID.
+     * This includes core ticket information, chronological history logs,
+     * and metadata for any associated file attachments.
+     *
+     * @param ticketId The unique database identifier of the ticket.
+     * @return A {@link TicketDetailsResponse} containing all aggregated ticket data.
+     * @throws ResourceNotFoundException If no ticket exists with the provided ID.
+     */
+    public TicketDetailsResponse getTicketById(Long ticketId) {
+        log.info("Initiating retrieval of complete ticket details for ID: {}", ticketId);
+
+
+        TicketEntity ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> {
+                    log.error("Ticket retrieval failed. ID not found: {}", ticketId);
+                    return new ResourceNotFoundException("Ticket not found with ID: " + ticketId);
+                });
+
+        List<TicketDetailsResponse.AttachmentMetadata> attachments = fetchAndMapAttachments(ticketId);
+        List<TicketDetailsResponse.TicketHistory> historyLogs = fetchAndMapHistory(ticketId);
+
+        return buildTicketResponse(ticket, attachments, historyLogs);
+    }
+
+    /**
+     * Helper method to fetch and map attachment BLOBs to safe metadata DTOs.
+     */
+    private List<TicketDetailsResponse.AttachmentMetadata> fetchAndMapAttachments(Long ticketId) {
+        return attachmentRepository.findByTicketId(ticketId).stream()
+                .map(attr -> TicketDetailsResponse.AttachmentMetadata.builder()
+                        .id(attr.getId())
+                        .fileType(attr.getFileType() != null ? attr.getFileType().name() : "UNKNOWN")
+                        .fileSizeInBytes(attr.getFile() != null ? attr.getFile().length : 0)
+                        .build())
+                .toList();
+    }
+
+    /**
+     * Helper method to fetch and map chronological audit logs.
+     */
+    private List<TicketDetailsResponse.TicketHistory> fetchAndMapHistory(Long ticketId) {
+        return ticketHistoryRepository.findByTicketId(ticketId).stream()
+                .map(logEntity -> TicketDetailsResponse.TicketHistory.builder()
+                        .id(logEntity.getId())
+                        .description(logEntity.getDescription())
+                        .createdBy(logEntity.getCreatedBy() != null ? logEntity.getCreatedBy().getEmail() : "System")
+                        .createdAt(logEntity.getCreatedAt())
+                        .build())
+                .toList();
+    }
+
+    /**
+     * Helper method to assemble the final response object.
+     */
+    private TicketDetailsResponse buildTicketResponse(
+            TicketEntity ticket,
+            List<TicketDetailsResponse.AttachmentMetadata> attachments,
+            List<TicketDetailsResponse.TicketHistory> historyLogs) {
+
+        return TicketDetailsResponse.builder()
+                .id(ticket.getId())
+                .title(ticket.getTitle())
+                .description(ticket.getDescription())
+                .status(ticket.getStatus())
+                .createdBy(ticket.getCreatedBy() != null ? ticket.getCreatedBy().getEmail() : "Unknown")
+                .createdAt(ticket.getCreatedAt())
+                .updatedAt(ticket.getUpdatedAt())
+                .attachments(attachments)
+                .history(historyLogs)
+                .build();
     }
 }
