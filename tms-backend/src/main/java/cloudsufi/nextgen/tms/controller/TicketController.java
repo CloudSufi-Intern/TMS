@@ -1,9 +1,6 @@
 package cloudsufi.nextgen.tms.controller;
 
-import cloudsufi.nextgen.tms.dto.TicketDetailsResponse;
-import cloudsufi.nextgen.tms.dto.TicketRaiseRequest;
-import cloudsufi.nextgen.tms.dto.TicketRaiseResponse;
-import cloudsufi.nextgen.tms.dto.TicketResponseDTO;
+import cloudsufi.nextgen.tms.dto.*;
 import cloudsufi.nextgen.tms.service.TicketService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -85,5 +82,19 @@ public class TicketController {
         log.info("REST request received: GET /api/tickets/my");
         List<TicketResponseDTO> tickets = ticketService.getMyTickets();
         return ResponseEntity.ok(tickets);
+    }
+
+
+    /**
+     * Partially updates a ticket.
+     * Expects a JSON body with only the fields that need changing.
+     */
+    @PatchMapping("/{ticketId}")
+    public ResponseEntity<TicketResponseDTO> updateTicket(
+            @PathVariable Long ticketId,
+            @RequestBody TicketUpdatePatchRequest request) {
+
+        TicketResponseDTO updatedTicket = ticketService.updateTicket(ticketId, request);
+        return ResponseEntity.ok(updatedTicket);
     }
 }

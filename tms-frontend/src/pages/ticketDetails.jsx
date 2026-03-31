@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { initialTickets } from '../data/tickets';
+import { useTicketContext } from "../context/TicketContext";
 import '../ticketDetails.css';
 
 /**
@@ -20,6 +20,10 @@ const TicketDetail = () => {
   const { id } = useParams();
   const foundTicket = initialTickets.find((t) => String(t.id) === String(id));
 
+  const { tickets,updateTicketStatus } = useTicketContext();
+  const foundTicket = tickets.find(
+    (t) => String(t.id) === String(id)
+  );
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState(foundTicket?.commentsList || []);
   const [status, setStatus] = useState(foundTicket?.status || 'open');
@@ -33,8 +37,7 @@ const TicketDetail = () => {
   };
 
   const closeTicketHandler = () => {
-    showToast('Ticket closing successfully');
-    setTimeout(() => navigate('/dashboard'), 1000);
+    setTimeout(() => navigate('/dashboard'), 100);
   };
 
   if (!foundTicket) {
@@ -58,10 +61,15 @@ const TicketDetail = () => {
     showToast('Comment added successfully');
   };
 
-  const handleStatusChange = (e) => {
-    setStatus(e.target.value);
-    showToast(`Status updated to "${e.target.value}"`);
-  };
+  /** Updates ticket status locally — wire to PATCH /api/tickets/:id when backend ready */
+const handleStatusChange = (e) => {
+  const newStatus = e.target.value;
+
+  setStatus(newStatus);
+  updateTicketStatus(id, newStatus);
+
+  showToast(`Status updated to "${newStatus}"`);
+};
 
   const handleAttachFile = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -161,6 +169,38 @@ const TicketDetail = () => {
           {/* COMMENTS */}
           <div className="td-card">
             <h2>Comments ({comments.length})</h2>
+            <h2 className="td-section-title">Ticket Information</h2>
+            <div className="td-info-list">
+
+              {/* Created By */}
+              <div className="td-info-item">
+                <div className="td-info-icon">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="td-info-label">Created By</div>
+                 <div className="td-info-name">{ticket.creator || "Unknown"}</div>
+                 <div className="td-info-email">N/A</div>
+                </div>
+              </div>
+
+              {/* Assigned To */}
+              <div className="td-info-item">
+                <div className="td-info-icon">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="td-info-label">Assigned To</div>
+               <div className="td-info-name">{ticket.assignedTo || "Unassigned"}</div>
+               <div className="td-info-email">N/A</div>
+                </div>
+              </div>
 
             {comments.map((c) => (
               <div key={c.id}>{c.text}</div>
@@ -178,6 +218,11 @@ const TicketDetail = () => {
               multiple
               onChange={handleAttachFile}
             />
+          {/* Quick Actions Card */}
+          <div className="td-card">
+              <button className="td-action-btn td-action-danger" onClick={closeTicketHandler}>
+                Close Ticket
+              </button>
           </div>
         </div>
 

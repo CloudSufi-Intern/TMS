@@ -54,9 +54,10 @@ const TicketRow = ({ ticket, onClick }) => {
         <Badge type={priority} />
       </div>
 
-      {/* Category */}
-      <div className="col-category">{category}</div>
-
+     {/* Assigned To */}
+     <div className="col-assigned">
+       {assignedTo || "Unassigned"}
+     </div>
 
 
       {/* Activity */}
