@@ -15,9 +15,27 @@ import { useToast } from '../hooks/useToast';
  * Composes all sub-components and wires up state
  * @author-Smriti Bajpai
  */
+
+/**
+ * Handles the ticket creation workflow from the UI.
+ * * [Ticket Update]: Converted to an async function to await the backend API response.
+ * This ensures the success Toast is only shown if the database successfully
+ * creates the ticket, and properly catches backend validation errors.
+ * const handleCreateTicket = async (formData) => {
+         try{
+             await createTicket(formData);
+             showToast('Ticket created successfully!');
+             }catch(error){
+                 showToast(error.message || 'Failed to create ticket',true);}
+     };
+ * * @param {Object} formData - The data from the CreateTicketModal
+ * @author Priyanshu Gupta
+ */
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [modalOpen, setModalOpen] = useState(false);
+  const role = localStorage.getItem('role');
   const { tickets, stats, search, setSearch, statusFilter, setStatusFilter, createTicket } = useTickets();
   const { toast, showToast } = useToast();
 
@@ -29,9 +47,13 @@ const Dashboard = () => {
     setTimeout(() => navigate('/login'), {replace:true});
   };
 
-  const handleCreateTicket = (formData) => {
-    createTicket(formData);
-    showToast('Ticket created successfully!');
+  const handleCreateTicket = async (formData) => {
+      try{
+          await createTicket(formData);
+          showToast('Ticket created successfully!');
+          }catch(error){
+              showToast(error.message || 'Failed to create ticket',true);
+              }
   };
 
   const handleTicketClick = (ticket) => {
@@ -43,7 +65,7 @@ const Dashboard = () => {
       <Header onLogout={handleLogout} />
 
       <main className="main">
-        <StatsGrid stats={stats} />
+       <StatsGrid stats={stats} role={role} />
 
         <Toolbar
           search={search}

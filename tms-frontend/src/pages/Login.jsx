@@ -82,9 +82,10 @@ const Login = () => {
     try {
       const response = await login(credentials);
 
-      /* Store JWT token for use in secured API calls */
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('tokenType', response.data.tokenType);
+      // store JWT token for use in secured API calls
+     localStorage.setItem('token', response.data.token);
+     localStorage.setItem('tokenType', response.data.tokenType);
+     localStorage.setItem('role', response.data.role);
 
       localStorage.setItem("userName", response.data.user.username);
 

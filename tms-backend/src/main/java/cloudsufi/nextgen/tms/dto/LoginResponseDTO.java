@@ -1,5 +1,6 @@
 package cloudsufi.nextgen.tms.dto;
 
+import cloudsufi.nextgen.tms.enums.Role;
 import lombok.Builder;
 import lombok.Data;
 
@@ -8,6 +9,11 @@ import lombok.Data;
  * Contains the JWT token issued upon successful authentication.
  *
  * @author Yashas Yadav
+ */
+/**
+ * [update]:Added additional required fields as per ticket #53
+ *
+ * @author Ansh Parnami
  */
 @Data
 @Builder
@@ -18,4 +24,20 @@ public class LoginResponseDTO {
     private String tokenType;
 
     private GetUserResponse user;
+
+    private Long id;
+
+    private String username;
+
+    private String email;
+
+    private String phoneNo;
+
+    /**
+     * The organizational role assigned to the user.
+     * @see cloudsufi.nextgen.tms.enums.Role
+     */
+    private Role role;
+
+
 }

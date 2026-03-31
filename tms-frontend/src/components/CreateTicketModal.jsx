@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const defaultForm = { title: '', desc: '', priority: 'medium', category: 'Hardware' };
+const defaultForm = { title: '', desc: '', priority: 'MEDIUM', files: [] };
 
 /**
  * Modal dialog for creating a new ticket
@@ -10,16 +10,27 @@ const defaultForm = { title: '', desc: '', priority: 'medium', category: 'Hardwa
  * @param {function} onError - Error toast trigger
  * @author-Smriti Bajpai
  */
+
+/**
+ * Processes the form submission before sending it to the parent component.
+ * * [Ticket Update]: Added strict client-side validation for the 'priority' field
+ * to ensure it perfectly mirrors backend constraints and prevents unnecessary API errors.
+ * * @author Priyanshu Gupta
+ */
+
+
 const CreateTicketModal = ({ isOpen, onClose, onSubmit, onError }) => {
-  const [form, setForm] = useState(defaultForm);
+    const [form, setForm] = useState(defaultForm);
+
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = () => {
-    if (!form.title.trim() || !form.desc.trim()) {
-      onError('Please fill in all required fields');
+      console.log("REACT THINKS THE DATA IS:", form);
+    if (!form.title?.trim() || !form.desc?.trim() || !form.priority) {
+      onError('Please fill in all required fields (Title, Description, and Priority)');
       return;
     }
     onSubmit(form);
@@ -30,6 +41,10 @@ const CreateTicketModal = ({ isOpen, onClose, onSubmit, onError }) => {
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) onClose();
   };
+
+const handleFileChange = (e) => {
+  setForm((prev) => ({ ...prev, files: Array.from(e.target.files) }));
+};
 
   return (
     <div className={`modal-overlay ${isOpen ? 'open' : ''}`} onClick={handleOverlayClick}>
@@ -68,26 +83,16 @@ const CreateTicketModal = ({ isOpen, onClose, onSubmit, onError }) => {
             />
           </div>
 
-          <div className="form-row">
-            <div className="form-group">
-              <label>Priority <span>*</span></label>
-              <select name="priority" className="form-select" value={form.priority} onChange={handleChange}>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Category <span>*</span></label>
-              <select name="category" className="form-select" value={form.category} onChange={handleChange}>
-                <option value="Hardware">Hardware</option>
-                <option value="Software">Software</option>
-                <option value="Account">Account</option>
-                <option value="Network">Network</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-          </div>
+         <div className="form-group">
+           <label>Priority <span>*</span></label>
+           <select name="priority" className="form-select" value={form.priority} onChange={handleChange}>
+             <option value="LOW">Low</option>
+             <option value="MEDIUM">Medium</option>
+             <option value="HIGH">High</option>
+           </select>
+         </div>
+
+
 
           <div className="form-group">
             <label>Attachments</label>
@@ -98,7 +103,12 @@ const CreateTicketModal = ({ isOpen, onClose, onSubmit, onError }) => {
               </svg>
               <p><span>Click to upload</span> or drag and drop</p>
               <small>PNG, JPG, PDF up to 10MB</small>
-              <input type="file" id="fileInput" style={{ display: 'none' }} multiple accept=".png,.jpg,.jpeg,.pdf" />
+              {form.files.length > 0 && (
+                <ul style={{ marginTop: '8px', fontSize: '12px' }}>
+                  {form.files.map((f, i) => <li key={i}>📎 {f.name}</li>)}
+                </ul>
+              )}
+             <input type="file" id="fileInput" style={{ display: 'none' }} multiple accept=".png,.jpg,.jpeg,.pdf" onChange={handleFileChange} />
             </div>
           </div>
         </div>

@@ -1,7 +1,9 @@
 package cloudsufi.nextgen.tms.service;
 
+import cloudsufi.nextgen.tms.dto.TicketDetailsResponse;
 import cloudsufi.nextgen.tms.dto.TicketRaiseRequest;
 import cloudsufi.nextgen.tms.dto.TicketRaiseResponse;
+import cloudsufi.nextgen.tms.dto.TicketResponseDTO;
 import cloudsufi.nextgen.tms.entity.*;
 import cloudsufi.nextgen.tms.enums.ApprovalStatus;
 import cloudsufi.nextgen.tms.enums.FileType;
@@ -192,5 +194,135 @@ public class TicketService {
             }
         });
         log.info("Attachment processing completed.");
+    }
+
+
+
+    /**
+     * Retrieves comprehensive details of a ticket by its unique ID.
+     * This includes core ticket information, chronological history logs,
+     * and metadata for any associated file attachments.
+     *
+     * @param ticketId The unique database identifier of the ticket.
+     * @return A {@link TicketDetailsResponse} containing all aggregated ticket data.
+     * @throws ResourceNotFoundException If no ticket exists with the provided ID.
+     */
+    public TicketDetailsResponse getTicketById(Long ticketId) {
+        log.info("Initiating retrieval of complete ticket details for ID: {}", ticketId);
+
+
+        TicketEntity ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> {
+                    log.error("Ticket retrieval failed. ID not found: {}", ticketId);
+                    return new ResourceNotFoundException("Ticket not found with ID: " + ticketId);
+                });
+
+        List<TicketDetailsResponse.AttachmentMetadata> attachments = fetchAndMapAttachments(ticketId);
+        List<TicketDetailsResponse.TicketHistory> historyLogs = fetchAndMapHistory(ticketId);
+
+        return buildTicketResponse(ticket, attachments, historyLogs);
+    }
+
+    /**
+     * Helper method to fetch and map attachment BLOBs to safe metadata DTOs.
+     */
+    private List<TicketDetailsResponse.AttachmentMetadata> fetchAndMapAttachments(Long ticketId) {
+        return attachmentRepository.findByTicketId(ticketId).stream()
+                .map(attr -> TicketDetailsResponse.AttachmentMetadata.builder()
+                        .id(attr.getId())
+                        .fileType(attr.getFileType() != null ? attr.getFileType().name() : "UNKNOWN")
+                        .fileSizeInBytes(attr.getFile() != null ? attr.getFile().length : 0)
+                        .build())
+                .toList();
+    }
+
+    /**
+     * Helper method to fetch and map chronological audit logs.
+     */
+    private List<TicketDetailsResponse.TicketHistory> fetchAndMapHistory(Long ticketId) {
+        return ticketHistoryRepository.findByTicketId(ticketId).stream()
+                .map(logEntity -> TicketDetailsResponse.TicketHistory.builder()
+                        .id(logEntity.getId())
+                        .description(logEntity.getDescription())
+                        .createdBy(logEntity.getCreatedBy() != null ? logEntity.getCreatedBy().getEmail() : "System")
+                        .createdAt(logEntity.getCreatedAt())
+                        .build())
+                .toList();
+    }
+
+    /**
+     * Helper method to assemble the final response object.
+     */
+    private TicketDetailsResponse buildTicketResponse(
+            TicketEntity ticket,
+            List<TicketDetailsResponse.AttachmentMetadata> attachments,
+            List<TicketDetailsResponse.TicketHistory> historyLogs) {
+
+        return TicketDetailsResponse.builder()
+                .id(ticket.getId())
+                .title(ticket.getTitle())
+                .description(ticket.getDescription())
+                .status(ticket.getStatus())
+                .createdBy(ticket.getCreatedBy() != null ? ticket.getCreatedBy().getEmail() : "Unknown")
+                .createdAt(ticket.getCreatedAt())
+                .updatedAt(ticket.getUpdatedAt())
+                .attachments(attachments)
+                .history(historyLogs)
+                .build();
+    }
+
+    /**
+     * Returns all tickets where the authenticated user is either the creator (raiser)
+     * or the assignee, ordered by creation date descending.
+     *
+     * This powers the dashboard page, giving the user a unified view of every ticket
+     * they raised and every ticket currently assigned to them.
+     *
+     * The user's identity is extracted from the Spring Security context via
+     * {@link JwtUtil#extractUser()} — no request parameters needed.
+     *
+     * @return List of {@link TicketResponseDTO} for the authenticated user's dashboard.
+     * @throws ResourceNotFoundException If the authenticated email cannot be matched to
+     *                                   a user record in the database.
+     * @author Yashas Yadav
+     */
+    public List<TicketResponseDTO> getMyTickets() {
+
+        UserEntity user = jwtUtil.extractUser();
+        log.info("Fetching dashboard tickets for user: {}", user.getEmail());
+
+        List<TicketEntity> tickets = ticketRepository.findAllByCreatedByOrAssignedTo(user);
+        log.info("Found {} ticket(s) for user: {}", tickets.size(), user.getEmail());
+
+        return tickets.stream()
+                .map(this::toResponseDTO)
+                .toList();
+    }
+
+    /**
+     * Maps a {@link TicketEntity} to a {@link TicketResponseDTO}.
+     * Safely handles nullable associations: assignedTo and approver may be null
+     * for newly raised tickets.
+     *
+     * @param ticket The ticket entity to transform.
+     * @return The populated response DTO.
+     */
+    private TicketResponseDTO toResponseDTO(TicketEntity ticket) {
+        return TicketResponseDTO.builder()
+                .id(ticket.getId())
+                .title(ticket.getTitle())
+                .description(ticket.getDescription())
+                .priority(ticket.getPriority())
+                .status(ticket.getStatus())
+                .sla(ticket.getSla())
+                .createdBy(ticket.getCreatedBy().getUsername())
+                .assignedTo(ticket.getAssignedTo() != null ? ticket.getAssignedTo().getUsername() : null)
+                .isApprovalRequired(ticket.isApprovalRequired())
+                .approver(ticket.getApprover() != null ? ticket.getApprover().getUsername() : null)
+                .approvalStatus(ticket.getApprovalStatus())
+                .assignedAt(ticket.getAssignedAt())
+                .createdAt(ticket.getCreatedAt())
+                .updatedAt(ticket.getUpdatedAt())
+                .build();
     }
 }

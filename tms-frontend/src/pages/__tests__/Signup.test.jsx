@@ -56,7 +56,7 @@ describe('Signup Page', () => {
     vi.restoreAllMocks();
   });
 
-  // ── Happy path ──────────────────────────────────────────────────
+  // Correct path
 
   it('should call AuthService.signUp with correct payload and navigate to /login on success', async () => {
     signUp.mockResolvedValueOnce({ data: { id: 1, username: 'yashascs', email: 'yashas@cs.com' } });
@@ -77,7 +77,7 @@ describe('Signup Page', () => {
     });
   });
 
-  // ── Frontend validation ─────────────────────────────────────────
+  // Frontend validation
 
   it('should show error and not call API when email format is invalid', async () => {
     renderSignup();
@@ -133,7 +133,7 @@ describe('Signup Page', () => {
     expect(signUp).not.toHaveBeenCalled();
   });
 
-  // ── API error handling ──────────────────────────────────────────
+  // API error handling
 
   it('should show "already exists" error on 409 response', async () => {
     signUp.mockRejectedValueOnce({ response: { status: 409, data: { message: 'User with this email already exists.' } } });
@@ -175,7 +175,7 @@ describe('Signup Page', () => {
     });
   });
 
-  // ── UI behaviour ────────────────────────────────────────────────
+  // UI behaviour
 
   it('should clear error when user starts typing after a failure', async () => {
     signUp.mockRejectedValueOnce({ response: { status: 409, data: { message: 'User with this email already exists.' } } });

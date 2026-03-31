@@ -98,6 +98,7 @@
 			<artifactId>spring-boot-webmvc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+
 	</dependencies>
 
 	<build>
