@@ -15,7 +15,6 @@ import '../ticketDetails.css';
 const TicketDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  const foundTicket = initialTickets.find((t) => String(t.id) === String(id));
 
   const { tickets,updateTicketStatus } = useTicketContext();
   const foundTicket = tickets.find(
@@ -132,108 +131,147 @@ const handleStatusChange = (e) => {
 
   return (
     <div className="td-page">
-
+      {/* ── HEADER ── */}
       <header className="td-header">
-        <button onClick={() => navigate('/dashboard')}>Back</button>
-        <span>#{String(ticket.id).padStart(6, '0')}</span>
+        <button className="td-back-btn" onClick={() => navigate('/dashboard')}>
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back
+        </button>
+        <span className="td-ticket-id">#{String(ticket.id).padStart(6, '0')}</span>
       </header>
 
-      <div className="td-layout">
+      {/* ── MAIN LAYOUT (The Grid) ── */}
+      <main className="td-layout">
 
-        {/* LEFT */}
+        {/* LEFT COLUMN: Ticket Content & Comments */}
         <div className="td-left">
-
           <div className="td-card">
-            <h1>{ticket.title}</h1>
-            <p>{ticket.description}</p>
+            <h1 className="td-title">{ticket.title}</h1>
+            <div className="td-badges">
+              {/* Status Badge - Dynamic Class */}
+              <span className={`td-badge td-status-${status.toLowerCase()}`}>
+                {status.replace('_', ' ')}
+              </span>
+              {/* Priority Badge */}
+              <span className={`td-badge td-priority-${ticket.priority?.toLowerCase()}`}>
+                {ticket.priority}
+              </span>
+              <span className="td-badge td-category">{ticket.category}</span>
+            </div>
+            <p className="td-description">{ticket.description}</p>
           </div>
 
-          {/*  ATTACHMENTS */}
+          {/* ATTACHMENTS */}
           <div className="td-card">
-            <h2>Attachments ({attachments.length})</h2>
+            <h2 className="td-section-title">Attachments ({attachments.length})</h2>
+            <div className="td-attachments">
+              {attachments.map((file) => (
+                <div key={file.id} className="td-attachment-row">
+                  <div className="td-attachment-left">
+                    <div className="td-attachment-icon">
+                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                    </div>
+                    <div>
+                      <div className="td-attachment-name">{file.name}</div>
+                      <div className="td-attachment-size">{file.size}</div>
+                    </div>
+                  </div>
+                  <button className="td-download-btn" onClick={() => handleDownload(file)}>
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
 
-            {attachments.map((file) => (
-              <div key={file.id} className="td-attachment-row">
-                <span>{file.name}</span>
+          {/* COMMENTS SECTION */}
+          <div className="td-card">
+            <h2 className="td-section-title">Comments</h2>
+            <div className="td-comments-list">
+              {comments.map((c) => (
+                <div key={c.id} className="td-comment">
+                  <div className="td-avatar">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  </div>
+                  <div className="td-comment-body">
+                    <div className="td-comment-header">
+                      <span className="td-comment-author">{c.author}</span>
+                      <span className="td-comment-time">{c.time}</span>
+                    </div>
+                    <p className="td-comment-text">{c.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-                <button onClick={() => handleDownload(file)}>
-                  Download
+            {/* ADD COMMENT INPUT */}
+            <div className="td-add-comment">
+              <label className="td-label">Post a Response</label>
+              <div className="td-comment-input-wrap">
+                <textarea
+                  className="td-comment-input"
+                  placeholder="Type your message..."
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                />
+                <button className="td-send-btn" onClick={handleAddComment}>
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
                 </button>
               </div>
-            ))}
+              <button className="td-attach-link">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                <input type="file" onChange={handleAttachFile} style={{display:'none'}} id="file-up" />
+                <label htmlFor="file-up">Add Attachment</label>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Sidebar */}
+        <aside className="td-right">
+          <div className="td-card">
+            <h2 className="td-section-title">Status Control</h2>
+            <select className="td-status-select" value={status} onChange={handleStatusChange}>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+            </select>
           </div>
 
-          {/* COMMENTS */}
           <div className="td-card">
-            <h2>Comments ({comments.length})</h2>
-            <h2 className="td-section-title">Ticket Information</h2>
+            <h2 className="td-section-title">Ticket Info</h2>
             <div className="td-info-list">
-
-              {/* Created By */}
               <div className="td-info-item">
                 <div className="td-info-icon">
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round"
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                 </div>
                 <div>
                   <div className="td-info-label">Created By</div>
-                 <div className="td-info-name">{ticket.creator || "Unknown"}</div>
-                 <div className="td-info-email">N/A</div>
+                  <div className="td-info-name">{ticket.creator}</div>
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* Assigned To */}
-              <div className="td-info-item">
-                <div className="td-info-icon">
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round"
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="td-info-label">Assigned To</div>
-               <div className="td-info-name">{ticket.assignedTo || "Unassigned"}</div>
-               <div className="td-info-email">N/A</div>
-                </div>
-              </div>
-
-            {comments.map((c) => (
-              <div key={c.id}>{c.text}</div>
-            ))}
-
-            <textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-            />
-
-            <button onClick={handleAddComment}>Add</button>
-
-            <input
-              type="file"
-              multiple
-              onChange={handleAttachFile}
-            />
-          {/* Quick Actions Card */}
           <div className="td-card">
+            <h2 className="td-section-title">Quick Actions</h2>
+            <div className="td-actions-list">
+              <button className="td-action-btn">Edit Ticket</button>
               <button className="td-action-btn td-action-danger" onClick={closeTicketHandler}>
                 Close Ticket
               </button>
+            </div>
           </div>
-        </div>
+        </aside>
+      </main>
 
-        {/* RIGHT */}
-        <div className="td-right">
-          <select value={status} onChange={handleStatusChange}>
-            <option value="open">Open</option>
-            <option value="resolved">Resolved</option>
-          </select>
-        </div>
+      {/* TOAST NOTIFICATION */}
+      <div className={`td-toast ${toast.show ? 'td-toast-show' : ''}`}>
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+        {toast.message}
       </div>
-
-      {/* TOAST */}
-      {toast.show && <div>{toast.message}</div>}
     </div>
   );
 };
