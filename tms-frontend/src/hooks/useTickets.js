@@ -41,10 +41,6 @@ export const useTickets = () => {
    */
   const { tickets ,setTickets} = useTicketContext();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-
-  const [tickets, setTickets] = useState([]);
-    const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
