@@ -49,4 +49,6 @@ public class AttachmentEntity {
     @CreationTimestamp
     @Column(name = "uploaded_at", nullable = false, updatable = false)
     private LocalDateTime uploadedAt;
+
+
 }
