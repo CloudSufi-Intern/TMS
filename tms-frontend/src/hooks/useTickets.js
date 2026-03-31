@@ -6,6 +6,7 @@
  * @author Smriti Bajpai
  */
 
+
  /**
   * Executes the API call to create a new ticket in the backend database.
   * * [Ticket Update]: Replaced frontend mock data with a real asynchronous fetch request.
@@ -14,7 +15,7 @@
   * * @param {Object} formData - The ticket details from the UI modal
   * @author Priyanshu Gupta
   */
-
+import { useTicketContext } from "../context/TicketContext";
 import { useState,useEffect  } from 'react';
 import { initialTickets } from '../data/tickets';
 
@@ -38,6 +39,9 @@ export const useTickets = () => {
    * Master list of all tickets in the system.
    * Initialized with mock data.
    */
+  const { tickets ,setTickets} = useTicketContext();
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
 
   const [tickets, setTickets] = useState([]);
     const [search, setSearch] = useState('');

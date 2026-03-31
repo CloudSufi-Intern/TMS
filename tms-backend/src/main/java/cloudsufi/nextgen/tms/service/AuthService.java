@@ -1,9 +1,6 @@
 package cloudsufi.nextgen.tms.service;
 
-import cloudsufi.nextgen.tms.dto.LoginRequestDTO;
-import cloudsufi.nextgen.tms.dto.LoginResponseDTO;
-import cloudsufi.nextgen.tms.dto.SignUpRequestDTO;
-import cloudsufi.nextgen.tms.dto.SignUpResponseDTO;
+import cloudsufi.nextgen.tms.dto.*;
 import cloudsufi.nextgen.tms.entity.UserEntity;
 import cloudsufi.nextgen.tms.exception.AuthenticationException;
 import cloudsufi.nextgen.tms.exception.DuplicateResourceException;
@@ -105,6 +102,15 @@ public class AuthService {
         return LoginResponseDTO.builder()
                 .token(token)
                 .tokenType("Bearer")
+                .user(
+                        GetUserResponse.builder()
+                                .id(user.getId())
+                                .username(user.getUsername())
+                                .email(user.getEmail())
+                                .phoneNo(user.getPhoneNo())
+                                .role(user.getRole())
+                                .build()
+                )
                 .role(user.getRole())
                 .id(user.getId())
                 .username(user.getUsername())
