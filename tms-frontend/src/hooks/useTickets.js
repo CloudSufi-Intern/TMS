@@ -53,6 +53,7 @@ export const useTickets = () => {
      * @author Priyanshu Gupta
      */
 
+  const [refreshTrigger, setRefreshTrigger] = useState(false);
 
     useEffect(() => {
      // Set loading state before API call
@@ -81,7 +82,7 @@ export const useTickets = () => {
       };
 
       fetchTickets();
-    }, []);
+    }, [refreshTrigger]);
 
   /**
    * Derives the filtered ticket list from the master tickets array.
@@ -146,7 +147,7 @@ const stats = {
               throw new Error(errorData.message || 'Validation failed or server error');
           }
           const savedTicket = await response.json();
-          setTickets((prev) => [...prev, savedTicket]);
+          setRefreshTrigger((prev) => !prev);
 
       } catch (error) {
           console.error("Error creating ticket:", error);
