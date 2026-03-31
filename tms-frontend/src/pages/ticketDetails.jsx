@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTicketContext } from "../context/TicketContext";
 import '../ticketDetails.css';
@@ -10,10 +10,7 @@ import '../ticketDetails.css';
  *
  * @author Smriti Bajpai
  */
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { initialTickets } from '../data/tickets';
-import '../ticketDetails.css';
+
 
 const TicketDetail = () => {
   const navigate = useNavigate();
