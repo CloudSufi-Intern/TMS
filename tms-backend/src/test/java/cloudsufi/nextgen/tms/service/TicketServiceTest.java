@@ -1,8 +1,6 @@
 package cloudsufi.nextgen.tms.service;
 
-import cloudsufi.nextgen.tms.dto.TicketDetailsResponse;
-import cloudsufi.nextgen.tms.dto.TicketRaiseRequest;
-import cloudsufi.nextgen.tms.dto.TicketRaiseResponse;
+import cloudsufi.nextgen.tms.dto.*;
 import cloudsufi.nextgen.tms.entity.AttachmentEntity;
 import cloudsufi.nextgen.tms.entity.TicketEntity;
 import cloudsufi.nextgen.tms.entity.TicketHistoryEntity;
@@ -24,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -80,6 +79,8 @@ class TicketServiceTest {
     @Mock
     private JwtUtil jwtUtil;
 
+    private UserEntity newAssignee;
+
     /**
      * Initializes default, valid mock data before each test execution.
      * This ensures a clean and predictable state across all test cases.
@@ -100,7 +101,18 @@ class TicketServiceTest {
 
         mockTicket = TicketEntity.builder()
                 .id(100L)
+                .title("Database Down") // Needed for DTO mapping
+                .description("Cannot connect to prod DB") // Needed for DTO mapping
+                .status(Status.OPEN)
+                .priority(Priority.MEDIUM)
                 .createdBy(mockUser)
+                .assignedTo(null)
+                .build();
+
+        newAssignee = UserEntity.builder()
+                .id(2L)
+                .username("Agent 1") // Needed for DTO mapping
+                .email("agent1@company.com")
                 .build();
     }
 
@@ -316,5 +328,103 @@ class TicketServiceTest {
         verify(ticketRepository, times(1)).findById(invalidId);
         verify(attachmentRepository, never()).findByTicketId(anyLong());
         verify(ticketHistoryRepository, never()).findByTicketId(anyLong());
+    }
+
+    @Test
+    @DisplayName("updateTicket - Should update multiple fields and generate a comprehensive history log")
+    void updateTicket_ValidUpdates_UpdatesFieldsAndLogsHistory() {
+        TicketUpdatePatchRequest request = new TicketUpdatePatchRequest();
+        request.setStatus(Status.IN_PROGRESS);
+        request.setPriority(Priority.HIGH);
+        request.setAssigneeEmail("agent1@company.com");
+
+        when(ticketRepository.findById(100L)).thenReturn(Optional.of(mockTicket));
+        when(jwtUtil.extractUser()).thenReturn(mockUser);
+        when(userRepository.findByEmail("agent1@company.com")).thenReturn(Optional.of(newAssignee));
+        when(ticketRepository.save(any(TicketEntity.class))).thenAnswer(i -> i.getArgument(0));
+
+        TicketResponseDTO response = ticketService.updateTicket(100L, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getStatus()).isEqualTo(Status.IN_PROGRESS);
+        assertThat(response.getPriority()).isEqualTo(Priority.HIGH);
+        assertThat(response.getAssignedTo()).isEqualTo("Agent 1");
+
+        ArgumentCaptor<TicketHistoryEntity> historyCaptor = ArgumentCaptor.forClass(TicketHistoryEntity.class);
+        verify(ticketHistoryRepository).save(historyCaptor.capture());
+
+        TicketHistoryEntity savedHistory = historyCaptor.getValue();
+        assertThat(savedHistory.getDescription()).contains("Status changed from OPEN to IN_PROGRESS.");
+        assertThat(savedHistory.getDescription()).contains("Priority changed from MEDIUM to HIGH.");
+        assertThat(savedHistory.getDescription()).contains("Assignee changed from Unassigned to agent1@company.com.");
+    }
+
+    @Test
+    @DisplayName("updateTicket - Should only update fields that are explicitly provided in the request")
+    void updateTicket_PartialUpdate_OnlyUpdatesProvidedFields() {
+        // Request only contains priority. Status and assignee should remain untouched.
+        TicketUpdatePatchRequest request = new TicketUpdatePatchRequest();
+        request.setPriority(Priority.URGENT);
+
+        when(ticketRepository.findById(100L)).thenReturn(Optional.of(mockTicket));
+        when(jwtUtil.extractUser()).thenReturn(mockUser);
+        when(ticketRepository.save(any(TicketEntity.class))).thenAnswer(i -> i.getArgument(0));
+
+        TicketResponseDTO response = ticketService.updateTicket(100L, request);
+
+        assertThat(response.getStatus()).isEqualTo(Status.OPEN);
+        assertThat(response.getPriority()).isEqualTo(Priority.URGENT);
+        assertThat(response.getAssignedTo()).isNull();
+
+        verify(userRepository, never()).findByEmail(anyString());
+    }
+
+    @Test
+    @DisplayName("updateTicket - Should skip database save if the incoming payload matches existing data")
+    void updateTicket_NoActualChanges_SkipsDatabaseHit() {
+        TicketUpdatePatchRequest request = new TicketUpdatePatchRequest();
+        request.setStatus(Status.OPEN);
+        request.setPriority(Priority.MEDIUM);
+
+        when(ticketRepository.findById(100L)).thenReturn(Optional.of(mockTicket));
+        when(jwtUtil.extractUser()).thenReturn(mockUser);
+
+        TicketResponseDTO response = ticketService.updateTicket(100L, request);
+
+        assertThat(response.getStatus()).isEqualTo(Status.OPEN);
+
+        // Ensure we didn't waste resources doing an empty save
+        verify(ticketRepository, never()).save(any());
+        verify(ticketHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateTicket - Should throw ResourceNotFoundException when updating a non-existent ticket")
+    void updateTicket_InvalidId_ThrowsResourceNotFoundException() {
+        TicketUpdatePatchRequest request = new TicketUpdatePatchRequest();
+        when(ticketRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> ticketService.updateTicket(999L, request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Ticket not found with ID: 999");
+
+        verify(ticketRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateTicket - Should throw ResourceNotFoundException when trying to assign to a non-existent email")
+    void updateTicket_InvalidAssigneeEmail_ThrowsResourceNotFoundException() {
+        TicketUpdatePatchRequest request = new TicketUpdatePatchRequest();
+        request.setAssigneeEmail("ghost@company.com");
+
+        when(ticketRepository.findById(100L)).thenReturn(Optional.of(mockTicket));
+        when(jwtUtil.extractUser()).thenReturn(mockUser);
+        when(userRepository.findByEmail("ghost@company.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> ticketService.updateTicket(100L, request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Assignee email not found: ghost@company.com");
+
+        verify(ticketRepository, never()).save(any());
     }
 }

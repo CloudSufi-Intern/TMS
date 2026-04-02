@@ -24,7 +24,6 @@ public class GetUserResponse {
     private String email;
 
     private String phoneNo;
-
     /**
      * The organizational role assigned to the user.
      * @see cloudsufi.nextgen.tms.enums.Role

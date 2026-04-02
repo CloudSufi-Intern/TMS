@@ -13,7 +13,6 @@ const TicketTable = ({ tickets, onTicketClick }) => (
       <div className="th">Ticket</div>
       <div className="th">Status</div>
       <div className="th">Priority</div>
-      <div className="th">Category</div>
       <div className="th">Assigned To</div>
       <div className="th">Activity</div>
     </div>

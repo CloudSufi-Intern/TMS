@@ -23,6 +23,7 @@ public class LoginResponseDTO {
 
     private String tokenType;
 
+    private GetUserResponse user;
 
     private Long id;
 

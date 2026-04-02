@@ -6,6 +6,7 @@
  * @author Smriti Bajpai
  */
 
+
  /**
   * Executes the API call to create a new ticket in the backend database.
   * * [Ticket Update]: Replaced frontend mock data with a real asynchronous fetch request.
@@ -14,8 +15,8 @@
   * * @param {Object} formData - The ticket details from the UI modal
   * @author Priyanshu Gupta
   */
-
-import { useState } from 'react';
+import { useTicketContext } from "../context/TicketContext";
+import { useState,useEffect  } from 'react';
 import { initialTickets } from '../data/tickets';
 
 /**
@@ -38,9 +39,50 @@ export const useTickets = () => {
    * Master list of all tickets in the system.
    * Initialized with mock data.
    */
-  const [tickets, setTickets] = useState(initialTickets);
+  const { tickets ,setTickets} = useTicketContext();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    /**
+     * Fetches all tickets for the authenticated user from the backend on component mount.
+     * Replaces the previous mock data initialization with a real API call.
+     * Calls GET /api/tickets/my — returns tickets where user is creator or assignee.
+     * [Ticket Update]: Integrated real backend API to replace initialTickets mock data.
+     * @author Priyanshu Gupta
+     */
+
+  const [refreshTrigger, setRefreshTrigger] = useState(false);
+
+    useEffect(() => {
+     // Set loading state before API call
+      const fetchTickets = async () => {
+        setLoading(true);
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch('http://localhost:8080/api/tickets/my', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to fetch tickets');
+          }
+          const data = await response.json();
+          setTickets(data);
+        } catch (err) {
+          console.error('Error fetching tickets:', err);
+          setError(err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchTickets();
+    }, [refreshTrigger]);
 
   /**
    * Derives the filtered ticket list from the master tickets array.
@@ -55,26 +97,28 @@ export const useTickets = () => {
      * If search is empty, all tickets pass this check.
      */
     const matchesSearch =
-      !query ||
-      ticket.title.toLowerCase().includes(query) ||
-      ticket.desc.toLowerCase().includes(query) ||
-      ticket.category.toLowerCase().includes(query);
+         !query ||
+         ticket.title?.toLowerCase().includes(query) ||
+         ticket.description?.toLowerCase().includes(query) ||
+         ticket.category?.toLowerCase().includes(query);
 
     /*
      * Check if the ticket matches the selected status filter.
      * If no filter is selected (empty string), all tickets pass.
      */
-    const matchesStatus = !statusFilter || ticket.status === statusFilter;
+
+    const matchesStatus = !statusFilter ||
+      ticket.status?.toLowerCase() === statusFilter.toLowerCase();
 
     return matchesSearch && matchesStatus;
   });
 
 
-  const stats = {
-    open:             tickets.filter((t) => t.status === 'open').length,
-    in_progress:      tickets.filter((t) => t.status === 'in_progress').length,
-    pending_approval: tickets.filter((t) => t.status === 'pending_approval').length,
-    resolved:         tickets.filter((t) => t.status === 'resolved').length,
+const stats = {
+    open:             tickets.filter((t) => t.status?.toUpperCase() === 'OPEN').length,
+    in_progress:      tickets.filter((t) => t.status?.toUpperCase() === 'IN_PROGRESS').length,
+    pending_approval: tickets.filter((t) => t.status?.toUpperCase() === 'PENDING_APPROVAL').length,
+    resolved:         tickets.filter((t) => t.status?.toUpperCase() === 'RESOLVED').length,
   };
 
   const createTicket = async ({ title, desc, priority, category, files }) => {
@@ -103,7 +147,7 @@ export const useTickets = () => {
               throw new Error(errorData.message || 'Validation failed or server error');
           }
           const savedTicket = await response.json();
-          setTickets((prev) => [...prev, savedTicket]);
+          setRefreshTrigger((prev) => !prev);
 
       } catch (error) {
           console.error("Error creating ticket:", error);
@@ -111,13 +155,14 @@ export const useTickets = () => {
       }
   };
   return {
-    tickets: filteredTickets,
-    stats,
-    search,
-    setSearch,
-    statusFilter,
-    setStatusFilter,
-    createTicket,
-
-   }
+     tickets: filteredTickets,
+     stats,
+     search,
+     setSearch,
+     statusFilter,
+     setStatusFilter,
+     createTicket,
+     loading,
+     error,
+    }
   };

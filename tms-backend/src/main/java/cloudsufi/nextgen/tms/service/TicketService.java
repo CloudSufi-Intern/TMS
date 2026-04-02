@@ -4,6 +4,7 @@ import cloudsufi.nextgen.tms.dto.TicketDetailsResponse;
 import cloudsufi.nextgen.tms.dto.TicketRaiseRequest;
 import cloudsufi.nextgen.tms.dto.TicketRaiseResponse;
 import cloudsufi.nextgen.tms.dto.TicketResponseDTO;
+import cloudsufi.nextgen.tms.dto.TicketUpdatePatchRequest;
 import cloudsufi.nextgen.tms.entity.*;
 import cloudsufi.nextgen.tms.enums.ApprovalStatus;
 import cloudsufi.nextgen.tms.enums.FileType;
@@ -45,6 +46,9 @@ public class TicketService {
     private final TicketHistoryRepository ticketHistoryRepository;
     private final JwtUtil jwtUtil;
     private final AttachmentRepository attachmentRepository;
+    private final UserRepository userRepository;
+    private final EmailNotificationService emailNotificationService;
+
 
     /**
      * Main entry point to raise a new support ticket in the system.
@@ -324,5 +328,91 @@ public class TicketService {
                 .createdAt(ticket.getCreatedAt())
                 .updatedAt(ticket.getUpdatedAt())
                 .build();
+    }
+
+
+
+    /**
+     * Partially updates a ticket's core details (Status, Priority, Assignee).
+     * Only fields provided in the request will be updated. Generates an audit log
+     * detailing exactly what changed.
+     *
+     * @param ticketId The ID of the ticket to update.
+     * @param request  The DTO containing the fields to update.
+     * @return The updated ticket mapped to a Response DTO.
+     */
+    @Transactional
+    public TicketResponseDTO updateTicket(Long ticketId, TicketUpdatePatchRequest request) {
+        log.info("Initiating partial update for Ticket ID: {}", ticketId);
+
+        TicketEntity ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with ID: " + ticketId));
+
+        UserEntity currentUser = jwtUtil.extractUser();
+        StringBuilder auditLogBuilder = new StringBuilder("Ticket updated: ");
+        boolean isUpdated = false;
+        boolean statusChanged = false;
+        String oldStatusString = ticket.getStatus().name();
+        boolean assigneeChanged = false;
+
+        if (request.getStatus() != null && !request.getStatus().equals(ticket.getStatus())) {
+            auditLogBuilder.append(String.format("Status changed from %s to %s. ", ticket.getStatus(), request.getStatus()));
+            ticket.setStatus(request.getStatus());
+            statusChanged = true;
+            isUpdated = true;
+        }
+
+        if (request.getPriority() != null && !request.getPriority().equals(ticket.getPriority())) {
+            auditLogBuilder.append(String.format("Priority changed from %s to %s. ", ticket.getPriority(), request.getPriority()));
+            ticket.setPriority(request.getPriority());
+            isUpdated = true;
+        }
+
+        if (request.getAssigneeEmail() != null) {
+            String currentAssigneeEmail = ticket.getAssignedTo() != null ? ticket.getAssignedTo().getEmail() : "Unassigned";
+
+            if (!request.getAssigneeEmail().equalsIgnoreCase(currentAssigneeEmail)) {
+                UserEntity newAssignee = userRepository.findByEmail(request.getAssigneeEmail())
+                        .orElseThrow(() -> new ResourceNotFoundException("Assignee email not found: " + request.getAssigneeEmail()));
+
+                ticket.setAssignedTo(newAssignee);
+                ticket.setAssignedAt(LocalDateTime.now());
+                auditLogBuilder.append(String.format("Assignee changed from %s to %s. ", currentAssigneeEmail, request.getAssigneeEmail()));
+                isUpdated = true;
+                assigneeChanged = true;
+            }
+        }
+
+        if (isUpdated) {
+
+            ticket.setUpdatedAt(LocalDateTime.now());
+            TicketEntity updatedTicket = ticketRepository.save(ticket);
+
+            TicketHistoryEntity history = TicketHistoryEntity.builder()
+                    .description(auditLogBuilder.toString().trim())
+                    .ticket(updatedTicket)
+                    .createdBy(currentUser)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            ticketHistoryRepository.save(history);
+
+            if (statusChanged) {
+                emailNotificationService.sendStatusChangeNotification(
+                        updatedTicket, oldStatusString, updatedTicket.getStatus().name()
+                );
+            }
+
+            if (assigneeChanged) {
+                emailNotificationService.sendAssigneeChangeNotification(
+                        updatedTicket, updatedTicket.getAssignedTo()
+                );
+            }
+
+            log.info("Ticket ID: {} successfully updated.", ticketId);
+            return toResponseDTO(updatedTicket);
+        } else {
+            log.info("No changes detected for Ticket ID: {}. Skipping database update.", ticketId);
+            return toResponseDTO(ticket);
+        }
     }
 }
