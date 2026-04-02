@@ -9,6 +9,7 @@ import CreateTicketModal from '../components/CreateTicketModal';
 import Toast from '../components/Toast';
 import { useTickets } from '../hooks/useTickets';
 import { useToast } from '../hooks/useToast';
+import { removeToken } from '../utils/auth';
 
 /**
  * Dashboard page — main ticket management view
@@ -40,11 +41,14 @@ const Dashboard = () => {
   const { toast, showToast } = useToast();
 
   const handleLogout = () => {
-      /**bug for the issue "tokens not getting deleted on logout"fixed*/
-      localStorage.removeItem('token');
-      localStorage.removeItem('tokenType');
-    showToast('Logged out successfully');
-    setTimeout(() => navigate('/login'), {replace:true});
+      /*
+         * Remove token first before navigating.
+         * This ensures ProtectedRoute sees no token
+         * if user presses back button after logout.
+         */
+        removeToken();
+        showToast('Logged out successfully');
+        setTimeout(() => navigate('/login'), 1000);
   };
 
   const handleCreateTicket = async (formData) => {
@@ -94,3 +98,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+

@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
 import { signUp } from '../services/AuthService';
-
+import {isLoggedIn} from '../utils/auth';
 /**
  * Signup page component
  * Allows new users to create an account via POST /api/auth/signup.
@@ -10,10 +10,18 @@ import { signUp } from '../services/AuthService';
  *
  * @author Vedanshu Garg
  * @author Yashas Yadav (API integration)
+ * @author Smriti Bajpai(Changed the form handling validation and added useffect for logout)
  * @returns Signup form UI
  */
 const Signup = () => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+      if (isLoggedIn()) {
+        navigate('/dashboard', { replace: true });
+      }
+    }, [navigate]);
+
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -36,19 +44,38 @@ const Signup = () => {
   };
 
   const validateForm = () => {
+    /*
+     * Validate email format using standard email regex.
+     * Checks for: localpart@domain.tld structure.
+     */
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const phoneRegex = /^[\d\s\-+]{10,15}$/;
-
     if (!emailRegex.test(formData.email)) {
       setError("Please enter a valid email address.");
       return false;
     }
-    if (!phoneRegex.test(formData.phoneNo)) {
-      setError("Please enter a valid phone number (10-15 digits).");
+
+    /*
+     * Extract only digits from phone number before validating length.
+     *
+     */
+    const digitsOnly = formData.phoneNo.replace(/[\s\-+(). ]*/g, '');
+
+    if (digitsOnly.length < 10) {
+      setError("Phone number is too short. Please enter at least 10 digits.");
       return false;
     }
 
-    setError("");
+    if (digitsOnly.length > 15) {
+      setError("Phone number is too long. Please enter no more than 15 digits.");
+      return false;
+    }
+
+    if (!/^\d+$/.test(digitsOnly)) {
+      setError("Phone number can only contain digits, spaces, +, or dashes.");
+      return false;
+    }
+
+    setError('');
     return true;
   };
 
@@ -126,7 +153,7 @@ const Signup = () => {
             <div>
               <label className="block text-[13px] font-medium text-gray-600 mb-1.5">Email Address</label>
               <input
-                type="email"
+                type="text"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
@@ -184,16 +211,7 @@ const Signup = () => {
             </button>
           </form>
 
-          <div className="mt-8 flex items-center justify-center">
-            <div className="border-t border-gray-200 w-full"></div>
-            <span className="px-4 text-[13px] text-gray-400 bg-white whitespace-nowrap">Or continue with</span>
-            <div className="border-t border-gray-200 w-full"></div>
-          </div>
 
-          <button className="mt-6 w-full flex justify-center items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium py-3 rounded-lg text-[15px] shadow-sm transition">
-            <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-            Google
-          </button>
 
           <p className="mt-8 text-center text-[14px] text-[#554af0] font-medium">
             <Link to="/login" className="hover:underline">Already have an account? Sign In</Link>
