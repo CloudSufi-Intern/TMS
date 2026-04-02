@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
 import { signUp } from '../services/AuthService';
-
+import {isLoggedIn} from '../utils/auth';
 /**
  * Signup page component
  * Allows new users to create an account via POST /api/auth/signup.
@@ -10,11 +10,18 @@ import { signUp } from '../services/AuthService';
  *
  * @author Vedanshu Garg
  * @author Yashas Yadav (API integration)
- *@author Smriti Bajpai(Changed the form handling)
+ * @author Smriti Bajpai(Changed the form handling validation and added useffect for logout)
  * @returns Signup form UI
  */
 const Signup = () => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+      if (isLoggedIn()) {
+        navigate('/dashboard', { replace: true });
+      }
+    }, [navigate]);
+
 
   const [formData, setFormData] = useState({
     fullName: '',

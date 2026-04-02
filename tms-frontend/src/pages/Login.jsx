@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import { Link, useNavigate } from 'react-router-dom';
 import { login } from '../services/AuthService';
+import { isLoggedIn } from '../utils/auth';
+
 
 /**
  * Login page component
@@ -10,6 +12,7 @@ import { login } from '../services/AuthService';
  *
  * @author Vedanshu Garg
  * @author Yashas Yadav (API integration)
+ * @author Smriti Bajpai(UI form validation fix)
  * @returns Login form UI
  */
 const Login = () => {
@@ -18,6 +21,18 @@ const Login = () => {
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  /*
+     * If user is already logged in and tries to visit /login,
+     * redirect them straight to dashboard.
+     * This prevents the back button from showing login page
+     * to an already authenticated user.
+     */
+    useEffect(() => {
+      if (isLoggedIn()) {
+        navigate('/dashboard', { replace: true });
+      }
+    }, [navigate]);
 
   const handleChange = (e) => {
     setCredentials({ ...credentials, [e.target.name]: e.target.value });
@@ -183,3 +198,4 @@ const Login = () => {
 }
 
 export default Login;
+

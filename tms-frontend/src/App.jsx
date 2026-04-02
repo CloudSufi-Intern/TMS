@@ -1,8 +1,9 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route , Navigate } from 'react-router-dom'
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import TicketDetail from "./pages/ticketDetails";
+import ProtectedRoute from './components/ProtectedRoute';
 
 /**
  * Root component handling application routing
@@ -14,10 +15,24 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-          <Route path="/" element={<Signup />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard/>}/>
-          <Route path="/tickets/:id" element={<TicketDetail />} />
+          {/* Public routes — accessible without login */}
+                  <Route path="/"      element={<Signup />} />
+                  <Route path="/login" element={<Login />} />
+
+                  {/* Protected routes — redirect to /login if not authenticated */}
+                  <Route path="/dashboard" element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/tickets/:id" element={
+                    <ProtectedRoute>
+                      <TicketDetail />
+                    </ProtectedRoute>
+                  } />
+
+                  {/* redirect unknown URLs to login */}
+                  <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );
