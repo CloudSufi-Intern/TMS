@@ -1,29 +1,54 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useTicketContext } from "../context/TicketContext";
 import '../ticketDetails.css';
 
 /**
- * TicketDetail page , shows full ticket info, comments, attachments,
- * status update, and quick actions.
- * Reads ticket data from initialTickets using the id from the URL params.
+ * TicketDetail page — fetches full ticket info from GET /api/tickets/{id}.
+ * Shows ticket metadata, history audit log, and attachment metadata.
  *
  * @author Smriti Bajpai
+ * [API Integration] Replaced context read with real API call — Priyanshu Gupta
  */
 const TicketDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { tickets,updateTicketStatus } = useTicketContext();
-  const foundTicket = tickets.find(
-    (t) => String(t.id) === String(id)
-  );
+
+  const [ticket, setTicket] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
+
   const [comment, setComment] = useState('');
-  const [comments, setComments] = useState(foundTicket?.commentsList || []);
-  const [status, setStatus] = useState(foundTicket?.status || 'open');
+  const [comments, setComments] = useState([]);
+  const [status, setStatus] = useState('');
   const [toast, setToast] = useState({ show: false, message: '' });
+  const [attachments, setAttachments] = useState([]);
 
+  useEffect(() => {
+    const fetchTicket = async () => {
+      setLoading(true);
+      setFetchError('');
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:8080/api/tickets/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.message || `Error ${response.status}`);
+        }
+        const data = await response.json();
+        setTicket(data);
+        setStatus(data.status || '');
+        setAttachments(data.attachments || []);
+      } catch (err) {
+        setFetchError(err.message || 'Failed to load ticket.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const [attachments, setAttachments] = useState(foundTicket?.attachments || []);
+    fetchTicket();
+  }, [id]);
 
   /** Shows a toast notification that auto-hides after 2.5s */
   const showToast = (message) => {
@@ -36,10 +61,19 @@ const TicketDetail = () => {
     setTimeout(() => navigate('/dashboard'), 100);
   };
 
-  /*
-   * Handle case where no ticket matches the URL id.
-   */
-  if (!foundTicket) {
+  const formatDate = (dt) => {
+    if (!dt) return 'N/A';
+    return new Date(dt).toLocaleString();
+  };
+
+  const formatBytes = (bytes) => {
+    if (!bytes) return '0 KB';
+    return bytes > 1024 * 1024
+      ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+      : `${Math.round(bytes / 1024)} KB`;
+  };
+
+  if (loading) {
     return (
       <div className="td-page">
         <header className="td-header">
@@ -51,21 +85,41 @@ const TicketDetail = () => {
           </button>
         </header>
         <div style={{ textAlign: 'center', padding: '80px 24px', color: '#9ca3af' }}>
-          <p style={{ fontSize: '18px', fontWeight: '600', color: '#111827' }}>Ticket not found</p>
-          <p style={{ fontSize: '14px', marginTop: '8px' }}>The ticket you are looking for does not exist.</p>
+          <p style={{ fontSize: '15px' }}>Loading ticket...</p>
         </div>
       </div>
     );
   }
 
-  const ticket = foundTicket;
+  if (fetchError || !ticket) {
+    return (
+      <div className="td-page">
+        <header className="td-header">
+          <button className="td-back-btn" onClick={() => navigate('/dashboard')}>
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Dashboard
+          </button>
+        </header>
+        <div style={{ textAlign: 'center', padding: '80px 24px', color: '#9ca3af' }}>
+          <p style={{ fontSize: '18px', fontWeight: '600', color: '#111827' }}>
+            {fetchError || 'Ticket not found'}
+          </p>
+          <p style={{ fontSize: '14px', marginTop: '8px' }}>
+            The ticket may not exist or you may not have access.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  /** Adds a new comment to the local list — wire to POST /api/tickets/:id/comments */
+  /** Adds a new comment to the local list */
   const handleAddComment = () => {
     if (!comment.trim()) return;
     const newComment = {
       id: Date.now(),
-      author: ticket.creator,
+      author: ticket.createdBy,
       text: comment.trim(),
       time: new Date().toLocaleString(),
     };
@@ -74,57 +128,27 @@ const TicketDetail = () => {
     showToast('Comment added successfully');
   };
 
-  /** Updates ticket status locally — wire to PATCH /api/tickets/:id when backend ready */
-const handleStatusChange = (e) => {
-  const newStatus = e.target.value;
-
-  setStatus(newStatus);
-  updateTicketStatus(id, newStatus);
-
-  showToast(`Status updated to "${newStatus}"`);
-};
-
-  /** Quick action handlers — wire to respective API calls when backend ready */
-  const handleQuickAction = (action) => {
-    showToast(`${action} — this is for backend`);
+  /** Updates ticket status locally */
+  const handleStatusChange = (e) => {
+    const newStatus = e.target.value;
+    setStatus(newStatus);
+    showToast(`Status updated to "${newStatus}"`);
   };
 
-  /**
-   * Handles file selection from local computer.
-   * Reads selected files, converts size to KB/MB, and appends to attachments state.
-   * TODO: Replace with API call when backend is ready:
-   * const formData = new FormData();
-   * files.forEach(file => formData.append('files', file));
-   * fetch(`/api/tickets/${id}/attachments`, { method: 'POST', body: formData });
-   */
+  /** Handles file selection — appends to local attachments state */
   const handleAttachFile = (e) => {
     const selectedFiles = Array.from(e.target.files);
     if (!selectedFiles.length) return;
 
     const newAttachments = selectedFiles.map((file) => ({
       name: file.name,
-
-      /* Convert bytes to KB or MB depending on file size */
-      size: file.size > 1024 * 1024
-        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
-        : `${Math.round(file.size / 1024)} KB`,
-
-      fileType: file.type.startsWith('image/') ? 'image' : 'pdf',
-      uploadedBy: ticket.creator,
-      uploadedAt: new Date().toLocaleString(),
-
-      /*
-       * Creates a temporary local URL so the file can be previewed
-       * in the browser without needing a backend.
-       * This URL is only valid for the current browser session.
-       */
+      fileSizeInBytes: file.size,
+      fileType: file.type.startsWith('image/') ? 'IMAGE' : 'PDF',
       localUrl: URL.createObjectURL(file),
     }));
 
     setAttachments((prev) => [...prev, ...newAttachments]);
     showToast(`${selectedFiles.length} file(s) attached successfully`);
-
-    /* Reset input value so the same file can be re-selected if needed */
     e.target.value = '';
   };
 
@@ -151,29 +175,53 @@ const handleStatusChange = (e) => {
           <div className="td-card">
             <h1 className="td-title">{ticket.title}</h1>
             <div className="td-badges">
-              <span className={`td-badge td-status-${ticket.status}`}>
-                {ticket.status.replace(/_/g, ' ')}
+              <span className={`td-badge td-status-${ticket.status?.toLowerCase()}`}>
+                {ticket.status?.replace(/_/g, ' ')}
               </span>
-              <span className={`td-badge td-priority-${ticket.priority}`}>
+              <span className={`td-badge td-priority-${ticket.priority?.toLowerCase()}`}>
                 {ticket.priority} priority
               </span>
-              <span className="td-badge td-category">{ticket.category}</span>
             </div>
             <p className="td-description">{ticket.description}</p>
           </div>
 
-          {/* Attachments Card — now uses local attachments state instead of ticket.attachments */}
+          {/* History Card — real audit log from API */}
           <div className="td-card">
-            <h2 className="td-section-title">
-              Attachments ({attachments.length})
-            </h2>
+            <h2 className="td-section-title">History ({ticket.history?.length || 0})</h2>
+            {(!ticket.history || ticket.history.length === 0) ? (
+              <p style={{ fontSize: '13px', color: '#9ca3af' }}>No history on this ticket.</p>
+            ) : (
+              <div className="td-comments-list">
+                {ticket.history.map((entry) => (
+                  <div className="td-comment" key={entry.id}>
+                    <div className="td-avatar">
+                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round"
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <div className="td-comment-body">
+                      <div className="td-comment-header">
+                        <span className="td-comment-author">{entry.createdBy}</span>
+                        <span className="td-comment-time">{formatDate(entry.createdAt)}</span>
+                      </div>
+                      <p className="td-comment-text">{entry.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
+          {/* Attachments Card */}
+          <div className="td-card">
+            <h2 className="td-section-title">Attachments ({attachments.length})</h2>
             {attachments.length === 0 ? (
               <p style={{ fontSize: '13px', color: '#9ca3af' }}>No attachments on this ticket.</p>
             ) : (
               <div className="td-attachments">
                 {attachments.map((file, i) => (
-                  <div className="td-attachment-row" key={i}>
+                  <div className="td-attachment-row" key={file.id ?? i}>
                     <div className="td-attachment-left">
                       <div className="td-attachment-icon">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -182,19 +230,19 @@ const handleStatusChange = (e) => {
                         </svg>
                       </div>
                       <div>
-                        <div className="td-attachment-name">{file.name}</div>
-                        <div className="td-attachment-size">{file.size}</div>
+                        <div className="td-attachment-name">
+                          {file.name || `Attachment #${file.id} (${file.fileType})`}
+                        </div>
+                        <div className="td-attachment-size">{formatBytes(file.fileSizeInBytes)}</div>
                       </div>
                     </div>
-
-
                     <button
                       className="td-download-btn"
                       onClick={() => {
                         if (file.localUrl) {
                           window.open(file.localUrl, '_blank');
                         } else {
-                          showToast(`Downloading ${file.name}...`);
+                          showToast('Download not yet available for server attachments');
                         }
                       }}
                     >
@@ -207,12 +255,32 @@ const handleStatusChange = (e) => {
                 ))}
               </div>
             )}
+
+            <div style={{ marginTop: '12px' }}>
+              <input
+                type="file"
+                id="attachFileInput"
+                style={{ display: 'none' }}
+                multiple
+                accept=".png,.jpg,.jpeg,.pdf"
+                onChange={handleAttachFile}
+              />
+              <button
+                className="td-attach-link"
+                onClick={() => document.getElementById('attachFileInput').click()}
+              >
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                    d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+                Attach files
+              </button>
+            </div>
           </div>
 
           {/* Comments Card */}
           <div className="td-card">
             <h2 className="td-section-title">Comments ({comments.length})</h2>
-
             <div className="td-comments-list">
               {comments.length === 0 ? (
                 <p style={{ fontSize: '13px', color: '#9ca3af', paddingBottom: '16px' }}>
@@ -238,8 +306,6 @@ const handleStatusChange = (e) => {
                 ))
               )}
             </div>
-
-            {/* Add comment input */}
             <div className="td-add-comment">
               <label className="td-label">Add a comment</label>
               <div className="td-comment-input-wrap">
@@ -249,7 +315,6 @@ const handleStatusChange = (e) => {
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   onKeyDown={(e) => {
-                    /* Ctrl + Enter submits the comment */
                     if (e.key === 'Enter' && e.ctrlKey) handleAddComment();
                   }}
                 />
@@ -259,32 +324,6 @@ const handleStatusChange = (e) => {
                   </svg>
                 </button>
               </div>
-
-              {/*
-               * Hidden file input — opens computer file picker when triggered.
-               * Accepts PNG, JPG, JPEG and PDF files only.
-               * multiple allows selecting more than one file at once.
-               */}
-              <input
-                type="file"
-                id="attachFileInput"
-                style={{ display: 'none' }}
-                multiple
-                accept=".png,.jpg,.jpeg,.pdf"
-                onChange={handleAttachFile}
-              />
-
-              {/* Visible button that triggers the hidden file input above */}
-              <button
-                className="td-attach-link"
-                onClick={() => document.getElementById('attachFileInput').click()}
-              >
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round"
-                    d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
-                Attach files
-              </button>
             </div>
           </div>
 
@@ -297,10 +336,11 @@ const handleStatusChange = (e) => {
           <div className="td-card">
             <h2 className="td-section-title">Update Status</h2>
             <select className="td-status-select" value={status} onChange={handleStatusChange}>
-              <option value="open">Open</option>
-              <option value="in_progress">In Progress</option>
-              <option value="pending_approval">Pending Approval</option>
-              <option value="resolved">Resolved</option>
+              <option value="OPEN">Open</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="ON_HOLD">On Hold</option>
+              <option value="RESOLVED">Resolved</option>
+              <option value="CLOSED">Closed</option>
             </select>
           </div>
 
@@ -309,7 +349,6 @@ const handleStatusChange = (e) => {
             <h2 className="td-section-title">Ticket Information</h2>
             <div className="td-info-list">
 
-              {/* Created By */}
               <div className="td-info-item">
                 <div className="td-info-icon">
                   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -319,12 +358,10 @@ const handleStatusChange = (e) => {
                 </div>
                 <div>
                   <div className="td-info-label">Created By</div>
-                 <div className="td-info-name">{ticket.creator || "Unknown"}</div>
-                 <div className="td-info-email">N/A</div>
+                  <div className="td-info-email">{ticket.createdBy || 'Unknown'}</div>
                 </div>
               </div>
 
-              {/* Assigned To */}
               <div className="td-info-item">
                 <div className="td-info-icon">
                   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -334,12 +371,28 @@ const handleStatusChange = (e) => {
                 </div>
                 <div>
                   <div className="td-info-label">Assigned To</div>
-               <div className="td-info-name">{ticket.assignedTo || "Unassigned"}</div>
-               <div className="td-info-email">N/A</div>
+                  <div className="td-info-email">{ticket.assignedTo || 'Unassigned'}</div>
                 </div>
               </div>
 
-              {/* Created At */}
+              {ticket.isApprovalRequired && (
+                <div className="td-info-item">
+                  <div className="td-info-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="td-info-label">Approver</div>
+                    <div className="td-info-email">{ticket.approver || 'N/A'}</div>
+                    <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
+                      {ticket.approvalStatus?.replace(/_/g, ' ')}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="td-info-item">
                 <div className="td-info-icon">
                   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -351,11 +404,10 @@ const handleStatusChange = (e) => {
                 </div>
                 <div>
                   <div className="td-info-label">Created</div>
-                  <div className="td-info-name">{ticket.createdAt}</div>
+                  <div className="td-info-name">{formatDate(ticket.createdAt)}</div>
                 </div>
               </div>
 
-              {/* Last Updated */}
               <div className="td-info-item">
                 <div className="td-info-icon">
                   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -365,11 +417,10 @@ const handleStatusChange = (e) => {
                 </div>
                 <div>
                   <div className="td-info-label">Last Updated</div>
-                  <div className="td-info-name">{ticket.updatedAt}</div>
+                  <div className="td-info-name">{formatDate(ticket.updatedAt)}</div>
                 </div>
               </div>
 
-              {/* Ticket ID */}
               <div className="td-info-item">
                 <div className="td-info-icon">
                   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -388,11 +439,11 @@ const handleStatusChange = (e) => {
             </div>
           </div>
 
-          {/* Quick Actions Card */}
+          {/* Quick Actions */}
           <div className="td-card">
-              <button className="td-action-btn td-action-danger" onClick={closeTicketHandler}>
-                Close Ticket
-              </button>
+            <button className="td-action-btn td-action-danger" onClick={closeTicketHandler}>
+              Close Ticket
+            </button>
           </div>
 
         </div>
