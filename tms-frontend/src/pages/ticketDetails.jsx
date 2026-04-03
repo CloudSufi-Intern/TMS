@@ -8,6 +8,7 @@ import '../ticketDetails.css';
  *
  * @author Smriti Bajpai
  * [API Integration] Replaced context read with real API call — Priyanshu Gupta
+ * [Merge] download handler fix — Yashas Yadav
  */
 const TicketDetail = () => {
   const navigate = useNavigate();
@@ -141,6 +142,7 @@ const TicketDetail = () => {
     if (!selectedFiles.length) return;
 
     const newAttachments = selectedFiles.map((file) => ({
+      id: Date.now() + Math.random(),
       name: file.name,
       fileSizeInBytes: file.size,
       fileType: file.type.startsWith('image/') ? 'IMAGE' : 'PDF',
@@ -150,6 +152,30 @@ const TicketDetail = () => {
     setAttachments((prev) => [...prev, ...newAttachments]);
     showToast(`${selectedFiles.length} file(s) attached successfully`);
     e.target.value = '';
+  };
+
+  /** Downloads a file — opens local blob URL or fetches from backend */
+  const handleDownload = async (file) => {
+    try {
+      if (file.localUrl) {
+        window.open(file.localUrl, '_blank');
+        return;
+      }
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `http://localhost:8080/api/attachments/${file.id}/download`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (!response.ok) throw new Error('Download failed');
+
+      const blob = await response.blob();
+      window.open(window.URL.createObjectURL(blob));
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to download file');
+    }
   };
 
   return (
@@ -238,13 +264,7 @@ const TicketDetail = () => {
                     </div>
                     <button
                       className="td-download-btn"
-                      onClick={() => {
-                        if (file.localUrl) {
-                          window.open(file.localUrl, '_blank');
-                        } else {
-                          showToast('Download not yet available for server attachments');
-                        }
-                      }}
+                      onClick={() => handleDownload(file)}
                     >
                       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round"
@@ -441,9 +461,13 @@ const TicketDetail = () => {
 
           {/* Quick Actions */}
           <div className="td-card">
-            <button className="td-action-btn td-action-danger" onClick={closeTicketHandler}>
-              Close Ticket
-            </button>
+            <h2 className="td-section-title">Quick Actions</h2>
+            <div className="td-actions-list">
+              <button className="td-action-btn">Edit Ticket</button>
+              <button className="td-action-btn td-action-danger" onClick={closeTicketHandler}>
+                Close Ticket
+              </button>
+            </div>
           </div>
 
         </div>
