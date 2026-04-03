@@ -1,260 +1,465 @@
-import { useState,useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useTicketContext } from "../context/TicketContext";
 import '../ticketDetails.css';
 
 /**
- * TicketDetail page , shows full ticket info, comments, attachments,
- * status update, and quick actions.
- * Reads ticket data from initialTickets using the id from the URL params.
+ * TicketDetail page — fetches full ticket info from GET /api/tickets/{id}.
+ * Shows ticket metadata, history audit log, and attachment metadata.
  *
  * @author Smriti Bajpai
+ * [API Integration] Replaced context read with real API call — Priyanshu Gupta
+ * [Merge] download handler fix — Yashas Yadav
  */
-
-
 const TicketDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const { tickets,updateTicketStatus } = useTicketContext();
-  const foundTicket = tickets.find(
-    (t) => String(t.id) === String(id)
-  );
+  const [ticket, setTicket] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
+
   const [comment, setComment] = useState('');
-  const [comments, setComments] = useState(foundTicket?.commentsList || []);
-  const [status, setStatus] = useState(foundTicket?.status || 'open');
+  const [comments, setComments] = useState([]);
+  const [status, setStatus] = useState('');
   const [toast, setToast] = useState({ show: false, message: '' });
+  const [attachments, setAttachments] = useState([]);
 
-  const [attachments, setAttachments] = useState(foundTicket?.attachments || []);
+  useEffect(() => {
+    const fetchTicket = async () => {
+      setLoading(true);
+      setFetchError('');
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:8080/api/tickets/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.message || `Error ${response.status}`);
+        }
+        const data = await response.json();
+        setTicket(data);
+        setStatus(data.status || '');
+        setAttachments(data.attachments || []);
+      } catch (err) {
+        setFetchError(err.message || 'Failed to load ticket.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    fetchTicket();
+  }, [id]);
+
+  /** Shows a toast notification that auto-hides after 2.5s */
   const showToast = (message) => {
     setToast({ show: true, message });
     setTimeout(() => setToast({ show: false, message: '' }), 2500);
   };
 
+  /** Closing the ticket and redirecting to the dashboard page */
   const closeTicketHandler = () => {
     setTimeout(() => navigate('/dashboard'), 100);
   };
 
-  if (!foundTicket) {
-    return <div>Ticket not found</div>;
+  const formatDate = (dt) => {
+    if (!dt) return 'N/A';
+    return new Date(dt).toLocaleString();
+  };
+
+  const formatBytes = (bytes) => {
+    if (!bytes) return '0 KB';
+    return bytes > 1024 * 1024
+      ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+      : `${Math.round(bytes / 1024)} KB`;
+  };
+
+  if (loading) {
+    return (
+      <div className="td-page">
+        <header className="td-header">
+          <button className="td-back-btn" onClick={() => navigate('/dashboard')}>
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Dashboard
+          </button>
+        </header>
+        <div style={{ textAlign: 'center', padding: '80px 24px', color: '#9ca3af' }}>
+          <p style={{ fontSize: '15px' }}>Loading ticket...</p>
+        </div>
+      </div>
+    );
   }
 
-  const ticket = foundTicket;
+  if (fetchError || !ticket) {
+    return (
+      <div className="td-page">
+        <header className="td-header">
+          <button className="td-back-btn" onClick={() => navigate('/dashboard')}>
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Dashboard
+          </button>
+        </header>
+        <div style={{ textAlign: 'center', padding: '80px 24px', color: '#9ca3af' }}>
+          <p style={{ fontSize: '18px', fontWeight: '600', color: '#111827' }}>
+            {fetchError || 'Ticket not found'}
+          </p>
+          <p style={{ fontSize: '14px', marginTop: '8px' }}>
+            The ticket may not exist or you may not have access.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
+  /** Adds a new comment to the local list */
   const handleAddComment = () => {
     if (!comment.trim()) return;
-
     const newComment = {
       id: Date.now(),
-      author: ticket.creator,
+      author: ticket.createdBy,
       text: comment.trim(),
       time: new Date().toLocaleString(),
     };
-
     setComments((prev) => [...prev, newComment]);
     setComment('');
     showToast('Comment added successfully');
   };
 
-  /** Updates ticket status locally — wire to PATCH /api/tickets/:id when backend ready */
-const handleStatusChange = (e) => {
-  const newStatus = e.target.value;
+  /** Updates ticket status locally */
+  const handleStatusChange = (e) => {
+    const newStatus = e.target.value;
+    setStatus(newStatus);
+    showToast(`Status updated to "${newStatus}"`);
+  };
 
-  setStatus(newStatus);
-  updateTicketStatus(id, newStatus);
-
-  showToast(`Status updated to "${newStatus}"`);
-};
-
+  /** Handles file selection — appends to local attachments state */
   const handleAttachFile = (e) => {
     const selectedFiles = Array.from(e.target.files);
     if (!selectedFiles.length) return;
 
     const newAttachments = selectedFiles.map((file) => ({
       id: Date.now() + Math.random(),
-
       name: file.name,
-
-      size:
-        file.size > 1024 * 1024
-          ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
-          : `${Math.round(file.size / 1024)} KB`,
-
-      fileType: file.type.startsWith('image/') ? 'image' : 'pdf',
-      uploadedBy: ticket.creator,
-      uploadedAt: new Date().toLocaleString(),
-
-      localUrl: URL.createObjectURL(file), // local preview
+      fileSizeInBytes: file.size,
+      fileType: file.type.startsWith('image/') ? 'IMAGE' : 'PDF',
+      localUrl: URL.createObjectURL(file),
     }));
 
     setAttachments((prev) => [...prev, ...newAttachments]);
     showToast(`${selectedFiles.length} file(s) attached successfully`);
-
     e.target.value = '';
   };
 
+  /** Downloads a file — opens local blob URL or fetches from backend */
   const handleDownload = async (file) => {
     try {
-      //  LOCAL FILE
       if (file.localUrl) {
         window.open(file.localUrl, '_blank');
         return;
       }
 
-      //BACKEND FILE
-      const token = localStorage.getItem("token");
-
+      const token = localStorage.getItem('token');
       const response = await fetch(
         `http://localhost:8080/api/attachments/${file.id}/download`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      if (!response.ok) {
-        throw new Error("Download failed");
-      }
+      if (!response.ok) throw new Error('Download failed');
 
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-
-      window.open(url);
-
+      window.open(window.URL.createObjectURL(blob));
     } catch (err) {
       console.error(err);
-      showToast("Failed to download file");
+      showToast('Failed to download file');
     }
   };
 
   return (
     <div className="td-page">
-      {/* ── HEADER ── */}
+
+      {/* TOP NAV */}
       <header className="td-header">
         <button className="td-back-btn" onClick={() => navigate('/dashboard')}>
-          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
-          Back
+          Back to Dashboard
         </button>
         <span className="td-ticket-id">#{String(ticket.id).padStart(6, '0')}</span>
       </header>
 
-      {/* ── MAIN LAYOUT (The Grid) ── */}
-      <main className="td-layout">
+      <div className="td-layout">
 
-        {/* LEFT COLUMN: Ticket Content & Comments */}
+        {/* LEFT COLUMN */}
         <div className="td-left">
+
+          {/* Ticket Info Card */}
           <div className="td-card">
             <h1 className="td-title">{ticket.title}</h1>
             <div className="td-badges">
-              {/* Status Badge - Dynamic Class */}
-              <span className={`td-badge td-status-${status.toLowerCase()}`}>
-                {status.replace('_', ' ')}
+              <span className={`td-badge td-status-${ticket.status?.toLowerCase()}`}>
+                {ticket.status?.replace(/_/g, ' ')}
               </span>
-              {/* Priority Badge */}
               <span className={`td-badge td-priority-${ticket.priority?.toLowerCase()}`}>
-                {ticket.priority}
+                {ticket.priority} priority
               </span>
-              <span className="td-badge td-category">{ticket.category}</span>
             </div>
             <p className="td-description">{ticket.description}</p>
           </div>
 
-          {/* ATTACHMENTS */}
+          {/* History Card — real audit log from API */}
           <div className="td-card">
-            <h2 className="td-section-title">Attachments ({attachments.length})</h2>
-            <div className="td-attachments">
-              {attachments.map((file) => (
-                <div key={file.id} className="td-attachment-row">
-                  <div className="td-attachment-left">
-                    <div className="td-attachment-icon">
-                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+            <h2 className="td-section-title">History ({ticket.history?.length || 0})</h2>
+            {(!ticket.history || ticket.history.length === 0) ? (
+              <p style={{ fontSize: '13px', color: '#9ca3af' }}>No history on this ticket.</p>
+            ) : (
+              <div className="td-comments-list">
+                {ticket.history.map((entry) => (
+                  <div className="td-comment" key={entry.id}>
+                    <div className="td-avatar">
+                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round"
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
                     </div>
-                    <div>
-                      <div className="td-attachment-name">{file.name}</div>
-                      <div className="td-attachment-size">{file.size}</div>
+                    <div className="td-comment-body">
+                      <div className="td-comment-header">
+                        <span className="td-comment-author">{entry.createdBy}</span>
+                        <span className="td-comment-time">{formatDate(entry.createdAt)}</span>
+                      </div>
+                      <p className="td-comment-text">{entry.description}</p>
                     </div>
                   </div>
-                  <button className="td-download-btn" onClick={() => handleDownload(file)}>
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* COMMENTS SECTION */}
+          {/* Attachments Card */}
           <div className="td-card">
-            <h2 className="td-section-title">Comments</h2>
-            <div className="td-comments-list">
-              {comments.map((c) => (
-                <div key={c.id} className="td-comment">
-                  <div className="td-avatar">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                  </div>
-                  <div className="td-comment-body">
-                    <div className="td-comment-header">
-                      <span className="td-comment-author">{c.author}</span>
-                      <span className="td-comment-time">{c.time}</span>
+            <h2 className="td-section-title">Attachments ({attachments.length})</h2>
+            {attachments.length === 0 ? (
+              <p style={{ fontSize: '13px', color: '#9ca3af' }}>No attachments on this ticket.</p>
+            ) : (
+              <div className="td-attachments">
+                {attachments.map((file, i) => (
+                  <div className="td-attachment-row" key={file.id ?? i}>
+                    <div className="td-attachment-left">
+                      <div className="td-attachment-icon">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round"
+                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="td-attachment-name">
+                          {file.name || `Attachment #${file.id} (${file.fileType})`}
+                        </div>
+                        <div className="td-attachment-size">{formatBytes(file.fileSizeInBytes)}</div>
+                      </div>
                     </div>
-                    <p className="td-comment-text">{c.text}</p>
+                    <button
+                      className="td-download-btn"
+                      onClick={() => handleDownload(file)}
+                    >
+                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round"
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                    </button>
                   </div>
-                </div>
-              ))}
-            </div>
-
-            {/* ADD COMMENT INPUT */}
-            <div className="td-add-comment">
-              <label className="td-label">Post a Response</label>
-              <div className="td-comment-input-wrap">
-                <textarea
-                  className="td-comment-input"
-                  placeholder="Type your message..."
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                />
-                <button className="td-send-btn" onClick={handleAddComment}>
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                </button>
+                ))}
               </div>
-              <button className="td-attach-link">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-                <input type="file" onChange={handleAttachFile} style={{display:'none'}} id="file-up" />
-                <label htmlFor="file-up">Add Attachment</label>
+            )}
+
+            <div style={{ marginTop: '12px' }}>
+              <input
+                type="file"
+                id="attachFileInput"
+                style={{ display: 'none' }}
+                multiple
+                accept=".png,.jpg,.jpeg,.pdf"
+                onChange={handleAttachFile}
+              />
+              <button
+                className="td-attach-link"
+                onClick={() => document.getElementById('attachFileInput').click()}
+              >
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                    d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+                Attach files
               </button>
             </div>
           </div>
-        </div>
 
-        {/* RIGHT COLUMN: Sidebar */}
-        <aside className="td-right">
+          {/* Comments Card */}
           <div className="td-card">
-            <h2 className="td-section-title">Status Control</h2>
-            <select className="td-status-select" value={status} onChange={handleStatusChange}>
-              <option value="open">Open</option>
-              <option value="in_progress">In Progress</option>
-              <option value="resolved">Resolved</option>
-            </select>
-          </div>
-
-          <div className="td-card">
-            <h2 className="td-section-title">Ticket Info</h2>
-            <div className="td-info-list">
-              <div className="td-info-item">
-                <div className="td-info-icon">
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                </div>
-                <div>
-                  <div className="td-info-label">Created By</div>
-                  <div className="td-info-name">{ticket.creator}</div>
-                </div>
+            <h2 className="td-section-title">Comments ({comments.length})</h2>
+            <div className="td-comments-list">
+              {comments.length === 0 ? (
+                <p style={{ fontSize: '13px', color: '#9ca3af', paddingBottom: '16px' }}>
+                  No comments yet. Be the first to comment.
+                </p>
+              ) : (
+                comments.map((c) => (
+                  <div className="td-comment" key={c.id}>
+                    <div className="td-avatar">
+                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round"
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <div className="td-comment-body">
+                      <div className="td-comment-header">
+                        <span className="td-comment-author">{c.author}</span>
+                        <span className="td-comment-time">{c.time}</span>
+                      </div>
+                      <p className="td-comment-text">{c.text}</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="td-add-comment">
+              <label className="td-label">Add a comment</label>
+              <div className="td-comment-input-wrap">
+                <textarea
+                  className="td-comment-input"
+                  placeholder="Type your comment here..."
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.ctrlKey) handleAddComment();
+                  }}
+                />
+                <button className="td-send-btn" onClick={handleAddComment}>
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                </button>
               </div>
             </div>
           </div>
 
+        </div>
+
+        {/* RIGHT COLUMN */}
+        <div className="td-right">
+
+          {/* Update Status Card */}
+          <div className="td-card">
+            <h2 className="td-section-title">Update Status</h2>
+            <select className="td-status-select" value={status} onChange={handleStatusChange}>
+              <option value="OPEN">Open</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="ON_HOLD">On Hold</option>
+              <option value="RESOLVED">Resolved</option>
+              <option value="CLOSED">Closed</option>
+            </select>
+          </div>
+
+          {/* Ticket Information Card */}
+          <div className="td-card">
+            <h2 className="td-section-title">Ticket Information</h2>
+            <div className="td-info-list">
+
+              <div className="td-info-item">
+                <div className="td-info-icon">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="td-info-label">Created By</div>
+                  <div className="td-info-email">{ticket.createdBy || 'Unknown'}</div>
+                </div>
+              </div>
+
+              <div className="td-info-item">
+                <div className="td-info-icon">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="td-info-label">Assigned To</div>
+                  <div className="td-info-email">{ticket.assignedTo || 'Unassigned'}</div>
+                </div>
+              </div>
+
+              {ticket.isApprovalRequired && (
+                <div className="td-info-item">
+                  <div className="td-info-icon">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="td-info-label">Approver</div>
+                    <div className="td-info-email">{ticket.approver || 'N/A'}</div>
+                    <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
+                      {ticket.approvalStatus?.replace(/_/g, ' ')}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="td-info-item">
+                <div className="td-info-icon">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="td-info-label">Created</div>
+                  <div className="td-info-name">{formatDate(ticket.createdAt)}</div>
+                </div>
+              </div>
+
+              <div className="td-info-item">
+                <div className="td-info-icon">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="td-info-label">Last Updated</div>
+                  <div className="td-info-name">{formatDate(ticket.updatedAt)}</div>
+                </div>
+              </div>
+
+              <div className="td-info-item">
+                <div className="td-info-icon">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="td-info-label">Ticket ID</div>
+                  <div className="td-info-name td-ticket-id-bold">
+                    #{String(ticket.id).padStart(6, '0')}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* Quick Actions */}
           <div className="td-card">
             <h2 className="td-section-title">Quick Actions</h2>
             <div className="td-actions-list">
@@ -264,14 +469,18 @@ const handleStatusChange = (e) => {
               </button>
             </div>
           </div>
-        </aside>
-      </main>
 
-      {/* TOAST NOTIFICATION */}
+        </div>
+      </div>
+
+      {/* Toast notification */}
       <div className={`td-toast ${toast.show ? 'td-toast-show' : ''}`}>
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
         {toast.message}
       </div>
+
     </div>
   );
 };
