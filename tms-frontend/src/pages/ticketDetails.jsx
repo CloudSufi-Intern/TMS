@@ -28,6 +28,10 @@ const TicketDetail = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [assigneeEmail, setAssigneeEmail] = useState('');
 
+  const userRole = localStorage.getItem('role');
+  const userEmail = localStorage.getItem('email');
+  const isIT = userRole === 'IT';
+
   useEffect(() => {
     const fetchTicket = async () => {
       setLoading(true);
@@ -67,6 +71,26 @@ const TicketDetail = () => {
     } catch (error) {
       console.error("Error assigning agent:", error);
       showToast(error.message || 'Failed to assign agent');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  /** Handles self-assignment for IT users */
+  const handleSelfAssign = async () => {
+    if (!userEmail) {
+      showToast('User email not found. Please log in again.');
+      return;
+    }
+    setIsUpdating(true);
+    try {
+      await updateTicket(id, { assigneeEmail: userEmail });
+      showToast('Ticket assigned to you');
+      const updatedTicket = await getTicketById(id);
+      setTicket(updatedTicket);
+    } catch (error) {
+      console.error("Error self-assigning ticket:", error);
+      showToast(error.message || 'Failed to self-assign ticket');
     } finally {
       setIsUpdating(false);
     }
@@ -445,18 +469,52 @@ const TicketDetail = () => {
               </div>
             )}
 
+            {isIT && ticket.assignedTo !== userEmail && (
+              <button 
+                className="td-self-assign-btn" 
+                onClick={handleSelfAssign}
+                disabled={isUpdating}
+              >
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Assign to Me
+              </button>
+            )}
+
+            {!isIT && (
+              <div style={{ 
+                marginBottom: '12px', 
+                padding: '10px', 
+                backgroundColor: '#fef2f2', 
+                border: '1px solid #fee2e2', 
+                borderRadius: '8px',
+                fontSize: '12px',
+                color: '#b91c1c',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Only IT personnel can assign or change agents.
+              </div>
+            )}
+
             <div className="td-assign-input-wrap">
               <input 
                 type="email" 
                 className="td-assign-input" 
-                placeholder="Agent email..." 
+                placeholder={isIT ? "Agent email..." : "Unauthorized"}
                 value={assigneeEmail}
                 onChange={(e) => setAssigneeEmail(e.target.value)}
+                disabled={!isIT || isUpdating}
               />
               <button 
                 className="td-assign-btn" 
                 onClick={handleAssignAgent}
-                disabled={isUpdating || !assigneeEmail.trim()}
+                disabled={!isIT || isUpdating || !assigneeEmail.trim()}
               >
                 {ticket.assignedTo && ticket.assignedTo !== 'Unassigned' ? 'Update' : 'Assign'}
               </button>
