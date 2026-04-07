@@ -365,6 +365,53 @@
 .td-toast-show { transform: translateY(0); opacity: 1; }
 .td-toast svg { width: 14px; height: 14px; color: #4ade80; flex-shrink: 0; }
 
+.td-updating {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.td-assign-input-wrap {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.td-assign-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1.5px solid #e4e7ef;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.td-assign-input:focus {
+  border-color: #4f46e5;
+}
+
+.td-assign-btn {
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.td-assign-btn:hover {
+  background: #4338ca;
+}
+
+.td-assign-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
 @media (max-width: 540px) {
   .td-header { padding: 0 16px; }
   .td-layout  { padding: 16px; }

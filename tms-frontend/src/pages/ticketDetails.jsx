@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { getTicketById, updateTicket } from '../services/TicketService';
 import '../ticketDetails.css';
 
 /**
@@ -21,25 +22,21 @@ const TicketDetail = () => {
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState([]);
   const [status, setStatus] = useState('');
+  const [priority, setPriority] = useState('');
   const [toast, setToast] = useState({ show: false, message: '' });
   const [attachments, setAttachments] = useState([]);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [assigneeEmail, setAssigneeEmail] = useState('');
 
   useEffect(() => {
     const fetchTicket = async () => {
       setLoading(true);
       setFetchError('');
       try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:8080/api/tickets/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          throw new Error(err.message || `Error ${response.status}`);
-        }
-        const data = await response.json();
+        const data = await getTicketById(id);
         setTicket(data);
         setStatus(data.status || '');
+        setPriority(data.priority || '');
         setAttachments(data.attachments || []);
       } catch (err) {
         setFetchError(err.message || 'Failed to load ticket.');
@@ -57,9 +54,37 @@ const TicketDetail = () => {
     setTimeout(() => setToast({ show: false, message: '' }), 2500);
   };
 
+  /** Handles ticket assignment to a specific agent email */
+  const handleAssignAgent = async () => {
+    if (!assigneeEmail.trim()) return;
+    setIsUpdating(true);
+    try {
+      await updateTicket(id, { assigneeEmail: assigneeEmail.trim() });
+      showToast(`Ticket assigned to ${assigneeEmail}`);
+      setAssigneeEmail('');
+      const updatedTicket = await getTicketById(id);
+      setTicket(updatedTicket);
+    } catch (error) {
+      console.error("Error assigning agent:", error);
+      showToast(error.message || 'Failed to assign agent');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   /** Closing the ticket and redirecting to the dashboard page */
-  const closeTicketHandler = () => {
-    setTimeout(() => navigate('/dashboard'), 100);
+  const closeTicketHandler = async () => {
+    try {
+      setIsUpdating(true);
+      await updateTicket(id, { status: 'CLOSED' });
+      showToast('Ticket closed successfully');
+      setTimeout(() => navigate('/dashboard'), 1000);
+    } catch (error) {
+      console.error("Error closing ticket:", error);
+      showToast('Failed to close ticket');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const formatDate = (dt) => {
@@ -129,11 +154,44 @@ const TicketDetail = () => {
     showToast('Comment added successfully');
   };
 
-  /** Updates ticket status locally */
-  const handleStatusChange = (e) => {
+  /** Updates ticket status in backend and locally */
+  const handleStatusChange = async (e) => {
     const newStatus = e.target.value;
-    setStatus(newStatus);
-    showToast(`Status updated to "${newStatus}"`);
+    setIsUpdating(true);
+    try {
+      await updateTicket(id, { status: newStatus });
+      setStatus(newStatus);
+      showToast(`Status updated to "${newStatus}"`);
+      
+      // Refresh ticket data to get updated history
+      const updatedTicket = await getTicketById(id);
+      setTicket(updatedTicket);
+    } catch (error) {
+      console.error("Error updating status:", error);
+      showToast('Failed to update status');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  /** Updates ticket priority in backend and locally */
+  const handlePriorityChange = async (e) => {
+    const newPriority = e.target.value;
+    setIsUpdating(true);
+    try {
+      await updateTicket(id, { priority: newPriority });
+      setPriority(newPriority);
+      showToast(`Priority updated to "${newPriority}"`);
+      
+      // Refresh ticket data to get updated history
+      const updatedTicket = await getTicketById(id);
+      setTicket(updatedTicket);
+    } catch (error) {
+      console.error("Error updating priority:", error);
+      showToast('Failed to update priority');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   /** Handles file selection — appends to local attachments state */
@@ -179,7 +237,7 @@ const TicketDetail = () => {
   };
 
   return (
-    <div className="td-page">
+    <div className={`td-page ${isUpdating ? 'td-updating' : ''}`}>
 
       {/* TOP NAV */}
       <header className="td-header">
@@ -355,7 +413,7 @@ const TicketDetail = () => {
           {/* Update Status Card */}
           <div className="td-card">
             <h2 className="td-section-title">Update Status</h2>
-            <select className="td-status-select" value={status} onChange={handleStatusChange}>
+            <select className="td-status-select" value={status} onChange={handleStatusChange} disabled={isUpdating}>
               <option value="OPEN">Open</option>
               <option value="IN_PROGRESS">In Progress</option>
               <option value="ON_HOLD">On Hold</option>
@@ -364,7 +422,49 @@ const TicketDetail = () => {
             </select>
           </div>
 
+          {/* Update Priority Card */}
+          <div className="td-card">
+            <h2 className="td-section-title">Update Priority</h2>
+            <select className="td-status-select" value={priority} onChange={handlePriorityChange} disabled={isUpdating}>
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+              <option value="URGENT">Urgent</option>
+            </select>
+          </div>
+
+          {/* Assign Agent Card */}
+          <div className="td-card">
+            <h2 className="td-section-title">
+              {ticket.assignedTo && ticket.assignedTo !== 'Unassigned' ? 'Change Agent' : 'Assign Agent'}
+            </h2>
+            
+            {ticket.assignedTo && ticket.assignedTo !== 'Unassigned' && (
+              <div style={{ marginBottom: '12px', fontSize: '13px', color: '#4b5563' }}>
+                Currently assigned to: <strong style={{ color: '#111827' }}>{ticket.assignedTo}</strong>
+              </div>
+            )}
+
+            <div className="td-assign-input-wrap">
+              <input 
+                type="email" 
+                className="td-assign-input" 
+                placeholder="Agent email..." 
+                value={assigneeEmail}
+                onChange={(e) => setAssigneeEmail(e.target.value)}
+              />
+              <button 
+                className="td-assign-btn" 
+                onClick={handleAssignAgent}
+                disabled={isUpdating || !assigneeEmail.trim()}
+              >
+                {ticket.assignedTo && ticket.assignedTo !== 'Unassigned' ? 'Update' : 'Assign'}
+              </button>
+            </div>
+          </div>
+
           {/* Ticket Information Card */}
+
           <div className="td-card">
             <h2 className="td-section-title">Ticket Information</h2>
             <div className="td-info-list">
@@ -464,7 +564,7 @@ const TicketDetail = () => {
             <h2 className="td-section-title">Quick Actions</h2>
             <div className="td-actions-list">
               <button className="td-action-btn">Edit Ticket</button>
-              <button className="td-action-btn td-action-danger" onClick={closeTicketHandler}>
+              <button className="td-action-btn td-action-danger" onClick={closeTicketHandler} disabled={isUpdating}>
                 Close Ticket
               </button>
             </div>
