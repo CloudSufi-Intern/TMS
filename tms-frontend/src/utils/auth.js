@@ -21,11 +21,10 @@
    return token !== null && token !== undefined && token !== '';
  };
 
- /**
-  * Removes the JWT token from localStorage on logout.
-  * After this call the user is considered logged out.
-  */
  export const removeToken = () => {
    localStorage.removeItem('token');
    localStorage.removeItem('tokenType');
+   localStorage.removeItem('role');
+   localStorage.removeItem('email');
+   localStorage.removeItem('userName');
  };

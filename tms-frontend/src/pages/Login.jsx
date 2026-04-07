@@ -101,6 +101,7 @@ const Login = () => {
      localStorage.setItem('token', response.data.token);
      localStorage.setItem('tokenType', response.data.tokenType);
      localStorage.setItem('role', response.data.role);
+     localStorage.setItem('email', response.data.user.email);
 
       localStorage.setItem("userName", response.data.user.username);
 
