@@ -97,4 +97,31 @@ public class TicketController {
         TicketResponseDTO updatedTicket = ticketService.updateTicket(ticketId, request);
         return ResponseEntity.ok(updatedTicket);
     }
+    /**
+     * POST /api/tickets/{ticketId}/comments
+     * Adds a new comment to a ticket.
+     *
+     * @author Priyanshu Gupta
+     */
+    @PostMapping("/{ticketId}/comments")
+    public ResponseEntity<CommentResponseDTO> addComment(
+            @PathVariable Long ticketId,
+            @Valid @RequestBody CommentRequestDTO request) {
+        log.info("REST request to add comment to Ticket ID: {}", ticketId);
+        CommentResponseDTO response = ticketService.addComment(ticketId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+    /**
+     * GET /api/tickets/{ticketId}/comments
+     * Retrieves all comments for a ticket.
+     *
+     * @author Priyanshu Gupta
+     */
+    @GetMapping("/{ticketId}/comments")
+    public ResponseEntity<List<CommentResponseDTO>> getComments(
+            @PathVariable Long ticketId) {
+        log.info("REST request to get comments for Ticket ID: {}", ticketId);
+        List<CommentResponseDTO> comments = ticketService.getComments(ticketId);
+        return ResponseEntity.ok(comments);
+    }
 }
