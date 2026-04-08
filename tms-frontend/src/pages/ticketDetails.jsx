@@ -47,8 +47,28 @@ const TicketDetail = () => {
         setLoading(false);
       }
     };
+     /**
+     * Fetches all comments for this ticket from the backend.
+     * [Ticket Update]: Replaced local state comments with real API call.
+     * @author Priyanshu Gupta
+     */
+    const fetchComments = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:8080/api/tickets/${id}/comments`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        setComments(data);
+      } catch (err) {
+        console.error('Failed to fetch comments:', err);
+      }
+    };
+
 
     fetchTicket();
+    fetchComments();
   }, [id]);
 
   /** Shows a toast notification that auto-hides after 2.5s */
@@ -115,19 +135,36 @@ const TicketDetail = () => {
     );
   }
 
-  /** Adds a new comment to the local list */
-  const handleAddComment = () => {
-    if (!comment.trim()) return;
-    const newComment = {
-      id: Date.now(),
-      author: ticket.createdBy,
-      text: comment.trim(),
-      time: new Date().toLocaleString(),
+  /**
+     * Sends a new comment to the backend and updates the local comments list.
+     * [Ticket Update]: Replaced local state update with real API call.
+     * @author Priyanshu Gupta
+     */
+    const handleAddComment = async () => {
+      if (!comment.trim()) return;
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:8080/api/tickets/${id}/comments`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ content: comment.trim() }),
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.message || 'Failed to add comment');
+        }
+        const savedComment = await response.json();
+        setComments((prev) => [...prev, savedComment]);
+        setComment('');
+        showToast('Comment added successfully');
+      } catch (err) {
+        console.error('Error adding comment:', err);
+        showToast('Failed to add comment');
+      }
     };
-    setComments((prev) => [...prev, newComment]);
-    setComment('');
-    showToast('Comment added successfully');
-  };
 
   /** Updates ticket status locally */
   const handleStatusChange = (e) => {
@@ -308,22 +345,22 @@ const TicketDetail = () => {
                 </p>
               ) : (
                 comments.map((c) => (
-                  <div className="td-comment" key={c.id}>
-                    <div className="td-avatar">
-                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round"
-                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    </div>
-                    <div className="td-comment-body">
-                      <div className="td-comment-header">
-                        <span className="td-comment-author">{c.author}</span>
-                        <span className="td-comment-time">{c.time}</span>
-                      </div>
-                      <p className="td-comment-text">{c.text}</p>
-                    </div>
-                  </div>
-                ))
+                                  <div className="td-comment" key={c.id}>
+                                    <div className="td-avatar">
+                                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round"
+                                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                      </svg>
+                                    </div>
+                                    <div className="td-comment-body">
+                                      <div className="td-comment-header">
+                                        <span className="td-comment-author">{c.createdBy}</span>
+                                        <span className="td-comment-time">{formatDate(c.createdAt)}</span>
+                                      </div>
+                                      <p className="td-comment-text">{c.content}</p>
+                                    </div>
+                                  </div>
+                                ))
               )}
             </div>
             <div className="td-add-comment">

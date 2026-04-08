@@ -17,6 +17,10 @@ import cloudsufi.nextgen.tms.repository.AttachmentRepository;
 import cloudsufi.nextgen.tms.repository.TicketHistoryRepository;
 import cloudsufi.nextgen.tms.repository.TicketRepository;
 import cloudsufi.nextgen.tms.repository.UserRepository;
+import cloudsufi.nextgen.tms.dto.CommentRequestDTO;
+import cloudsufi.nextgen.tms.dto.CommentResponseDTO;
+import cloudsufi.nextgen.tms.entity.CommentEntity;
+import cloudsufi.nextgen.tms.repository.CommentRepository;
 
 import cloudsufi.nextgen.tms.util.JwtUtil;
 import jakarta.transaction.Transactional;
@@ -48,6 +52,7 @@ public class TicketService {
     private final AttachmentRepository attachmentRepository;
     private final UserRepository userRepository;
     private final EmailNotificationService emailNotificationService;
+    private final CommentRepository commentRepository;
 
 
     /**
@@ -415,4 +420,67 @@ public class TicketService {
             return toResponseDTO(ticket);
         }
     }
-}
+
+        /**
+         * Adds a new comment to a ticket.
+         * User identity is extracted from JWT token.
+         *
+         * @param ticketId The ID of the ticket to comment on.
+         * @param request  The comment content.
+         * @return The saved comment as a response DTO.
+         * @author Priyanshu Gupta
+         */
+        public CommentResponseDTO addComment (Long ticketId, CommentRequestDTO request){
+            log.info("Adding comment to Ticket ID: {}", ticketId);
+
+            TicketEntity ticket = ticketRepository.findById(ticketId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with ID: " + ticketId));
+
+            UserEntity currentUser = jwtUtil.extractUser();
+
+            CommentEntity comment = CommentEntity.builder()
+                    .content(request.getContent())
+                    .ticket(ticket)
+                    .createdBy(currentUser)
+                    .build();
+
+            CommentEntity savedComment = commentRepository.save(comment);
+            log.info("Comment saved successfully for Ticket ID: {}", ticketId);
+
+            return toCommentResponseDTO(savedComment);
+        }
+
+
+/**
+ * Retrieves all comments for a ticket ordered by creation date ascending.
+ *
+ * @param  ticketId The ID of the ticket.
+ * @return List of comments as response DTOs.
+ * @author Priyanshu Gupta
+ */
+        public List<CommentResponseDTO> getComments(Long ticketId) {
+            log.info("Fetching comments for Ticket ID: {}", ticketId);
+
+            if (!ticketRepository.existsById(ticketId)) {
+                throw new ResourceNotFoundException("Ticket not found with ID: " + ticketId);
+            }
+
+            return commentRepository.findByTicketIdOrderByCreatedAtAsc(ticketId)
+                    .stream()
+                    .map(this::toCommentResponseDTO)
+                    .toList();
+        }
+
+/**
+ * Maps a CommentEntity to a CommentResponseDTO.
+ */
+        private CommentResponseDTO toCommentResponseDTO(CommentEntity comment) {
+            return CommentResponseDTO.builder()
+                    .id(comment.getId())
+                    .content(comment.getContent())
+                    .createdBy(comment.getCreatedBy().getUsername())
+                    .createdAt(comment.getCreatedAt())
+                    .build();
+        }
+    }
+
