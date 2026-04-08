@@ -45,6 +45,9 @@ public class CorsConfig {
         // Allow all headers (can be restricted later if needed)
         config.setAllowedHeaders(List.of("*"));
 
+        // Expose headers (so frontend can read Content-Disposition for filename)
+        config.setExposedHeaders(List.of("Content-Disposition"));
+
         // Allow credentials (required for JWT Authorization header support)
         config.setAllowCredentials(true);
 
