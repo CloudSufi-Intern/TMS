@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getTicketById, updateTicket } from '../services/TicketService';
+import { downloadAttachment } from '../services/AttachmentService';
 import '../ticketDetails.css';
 
 /**
@@ -10,6 +11,7 @@ import '../ticketDetails.css';
  * @author Smriti Bajpai
  * [API Integration] Replaced context read with real API call — Priyanshu Gupta
  * [Merge] download handler fix — Yashas Yadav
+ * [Attachment Update] Integrated downloadAttachment service — Ansh Parnami
  */
 const TicketDetail = () => {
   const navigate = useNavigate();
@@ -244,16 +246,7 @@ const TicketDetail = () => {
         return;
       }
 
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `http://localhost:8080/api/attachments/${file.id}/download`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (!response.ok) throw new Error('Download failed');
-
-      const blob = await response.blob();
-      window.open(window.URL.createObjectURL(blob));
+      await downloadAttachment(file.id, file.name);
     } catch (err) {
       console.error(err);
       showToast('Failed to download file');
