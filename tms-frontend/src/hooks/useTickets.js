@@ -114,11 +114,14 @@ export const useTickets = () => {
   });
 
 
+const currentUserName = localStorage.getItem('userName');
+
 const stats = {
     open:             tickets.filter((t) => t.status?.toUpperCase() === 'OPEN').length,
     in_progress:      tickets.filter((t) => t.status?.toUpperCase() === 'IN_PROGRESS').length,
     pending_approval: tickets.filter((t) => t.status?.toUpperCase() === 'PENDING_APPROVAL').length,
     resolved:         tickets.filter((t) => t.status?.toUpperCase() === 'RESOLVED').length,
+    assigned:         tickets.filter((t) => t.assignedTo === currentUserName).length,
   };
 
   const createTicket = async ({ title, desc, priority, category, files }) => {
