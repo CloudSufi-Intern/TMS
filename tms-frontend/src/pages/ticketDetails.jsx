@@ -388,26 +388,6 @@ const TicketDetail = () => {
               </div>
             )}
 
-            <div style={{ marginTop: '12px' }}>
-              <input
-                type="file"
-                id="attachFileInput"
-                style={{ display: 'none' }}
-                multiple
-                accept=".png,.jpg,.jpeg,.pdf"
-                onChange={handleAttachFile}
-              />
-              <button
-                className="td-attach-link"
-                onClick={() => document.getElementById('attachFileInput').click()}
-              >
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round"
-                    d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
-                Attach files
-              </button>
-            </div>
           </div>
 
           {/* Comments Card */}
@@ -651,7 +631,6 @@ const TicketDetail = () => {
           <div className="td-card">
             <h2 className="td-section-title">Quick Actions</h2>
             <div className="td-actions-list">
-              <button className="td-action-btn">Edit Ticket</button>
               <button className="td-action-btn td-action-danger" onClick={closeTicketHandler} disabled={isUpdating}>
                 Close Ticket
               </button>
