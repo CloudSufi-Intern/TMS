@@ -30,7 +30,7 @@ const statusIcons = {
  * @author-Smriti Bajpai
  */
 const TicketRow = ({ ticket, onClick }) => {
-  const { title, desc, status, priority, category, assignedTo, creator, comments, files, hasNotif } = ticket;
+  const { title, description, status, priority, category, assignedTo, createdBy, commentCount, attachmentCount, hasNotif } = ticket;
 
   return (
     <div className="ticket-row" onClick={onClick}>
@@ -40,8 +40,8 @@ const TicketRow = ({ ticket, onClick }) => {
           {statusIcons[status]}
           <span className="ticket-title">{title}</span>
         </div>
-        <div className="ticket-desc">{desc}</div>
-        <div className="ticket-creator">Created by {creator}</div>
+        <div className="ticket-desc">{description || "Not Available" }</div>
+        <div className="ticket-creator">Created by {typeof createdBy === 'object' ? createdBy.name : (createdBy || "Unassigned")}</div>
       </div>
 
       {/* Status */}
@@ -67,14 +67,14 @@ const TicketRow = ({ ticket, onClick }) => {
             <path strokeLinecap="round" strokeLinejoin="round"
               d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
           </svg>
-          {comments} comments
+          {commentCount || 0} comments
         </span>
         <span className="activity-item">
           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round"
               d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
           </svg>
-          {files} files
+          {attachmentCount || 0} attachments
         </span>
       </div>
     </div>

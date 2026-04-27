@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getTicketById, updateTicket } from '../services/TicketService';
 import { downloadAttachment } from '../services/AttachmentService';
+import { searchUsers } from '../services/UserService';
 import '../ticketDetails.css';
 
 /**
@@ -29,6 +30,10 @@ const TicketDetail = () => {
   const [attachments, setAttachments] = useState([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [assigneeEmail, setAssigneeEmail] = useState('');
+
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [mentionIndex, setMentionIndex] = useState(-1);
 
   const userRole = localStorage.getItem('role');
   const userEmail = localStorage.getItem('email');
@@ -225,7 +230,7 @@ const TicketDetail = () => {
       await updateTicket(id, { status: newStatus });
       setStatus(newStatus);
       showToast(`Status updated to "${newStatus}"`);
-      
+
       // Refresh ticket data to get updated history
       const updatedTicket = await getTicketById(id);
       setTicket(updatedTicket);
@@ -245,7 +250,7 @@ const TicketDetail = () => {
       await updateTicket(id, { priority: newPriority });
       setPriority(newPriority);
       showToast(`Priority updated to "${newPriority}"`);
-      
+
       // Refresh ticket data to get updated history
       const updatedTicket = await getTicketById(id);
       setTicket(updatedTicket);
@@ -288,6 +293,66 @@ const TicketDetail = () => {
       console.error(err);
       showToast('Failed to download file');
     }
+  };
+
+  const handleCommentChange = async (e) => {
+    const value = e.target.value;
+    const cursorPos = e.target.selectionStart;
+    setComment(value);
+
+    // Detect "@username" pattern before cursor
+    const textBeforeCursor = value.substring(0, cursorPos);
+    const mentionMatch = textBeforeCursor.match(/(^|\s)@(\w*)$/);
+
+    if (mentionMatch) {
+      const query = mentionMatch[2];
+      const matchStart = mentionMatch.index + mentionMatch[1].length;
+
+      // Backend constraint: query must be at least 2 chars
+      if (query.length >= 2) {
+        try {
+          const results = await searchUsers(query);
+          setSuggestions(results);
+          setShowSuggestions(results.length > 0);
+          setMentionIndex(matchStart);
+        } catch (err) {
+          console.error("Error searching users:", err);
+          setShowSuggestions(false);
+        }
+      } else {
+        setShowSuggestions(false);
+      }
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectUser = (username) => {
+    const beforeMention = comment.substring(0, mentionIndex);
+    // Find where the current mention text ends (first space or end of string)
+    const restOfString = comment.substring(mentionIndex);
+    const nextSpace = restOfString.indexOf(' ');
+    const afterMention = nextSpace !== -1 ? restOfString.substring(nextSpace) : '';
+
+    setComment(`${beforeMention}@${username}${afterMention || ' '}`);
+    setShowSuggestions(false);
+  };
+
+  const renderCommentWithMentions = (text) => {
+    if (!text) return null;
+
+    const parts = text.split(/(@\w+)/g);
+
+    return parts.map((part, index) => {
+      if (part.startsWith('@')) {
+        return (
+          <span key={index} className="td-mention">
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
   };
 
   return (
@@ -412,7 +477,7 @@ const TicketDetail = () => {
                                         <span className="td-comment-author">{c.createdBy}</span>
                                         <span className="td-comment-time">{formatDate(c.createdAt)}</span>
                                       </div>
-                                      <p className="td-comment-text">{c.content}</p>
+                                      <p className="td-comment-text">{renderCommentWithMentions(c.content)}</p>
                                     </div>
                                   </div>
                                 ))
@@ -420,17 +485,30 @@ const TicketDetail = () => {
             </div>
             <div className="td-add-comment">
               <label className="td-label">Add a comment</label>
-              <div className="td-comment-input-wrap">
+              <div className="td-comment-input-wrap" style={{ position: 'relative' }}>
                 <textarea
                   className="td-comment-input"
-                  placeholder="Type your comment here..."
+                  placeholder="Type your comment here (use @ to tag)..."
                   value={comment}
-                  onChange={(e) => setComment(e.target.value)}
+                  onChange={handleCommentChange}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && e.ctrlKey) handleAddComment();
+                    if (e.key === 'Escape') setShowSuggestions(false);
                   }}
                 />
-                <button className="td-send-btn" onClick={handleAddComment}>
+                {showSuggestions && suggestions.length > 0 && (
+                  <ul className="mention-dropdown">
+                    {suggestions.map((u) => (
+                      <li key={u.id} onClick={() => selectUser(u.username)}>
+                        <span className="mention-avatar">
+                          {u.username[0].toUpperCase()}
+                        </span>
+                        {u.username}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <button className="td-send-btn" onClick={handleAddComment} disabled={isUpdating}>
                   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                   </svg>

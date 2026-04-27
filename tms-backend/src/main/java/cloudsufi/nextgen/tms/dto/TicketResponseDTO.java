@@ -49,4 +49,8 @@ public class TicketResponseDTO {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    private int commentCount;
+
+    private int attachmentCount;
 }

@@ -339,6 +339,8 @@ public class TicketService {
                 .assignedAt(ticket.getAssignedAt())
                 .createdAt(ticket.getCreatedAt())
                 .updatedAt(ticket.getUpdatedAt())
+                .commentCount((int)commentRepository.countByTicketId(ticket.getId()))
+                .attachmentCount((int)attachmentRepository.countByTicketId(ticket.getId()))
                 .build();
     }
 

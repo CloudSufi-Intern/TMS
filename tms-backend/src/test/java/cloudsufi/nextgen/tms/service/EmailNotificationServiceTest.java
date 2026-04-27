@@ -1,6 +1,8 @@
 package cloudsufi.nextgen.tms.service;
 
+import cloudsufi.nextgen.tms.entity.CommentEntity;
 import cloudsufi.nextgen.tms.entity.TicketEntity;
+import cloudsufi.nextgen.tms.entity.TicketHistoryEntity;
 import cloudsufi.nextgen.tms.entity.UserEntity;
 import cloudsufi.nextgen.tms.enums.Priority;
 import jakarta.mail.Session;
@@ -15,6 +17,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.util.ReflectionTestUtils;
+
+
+import java.util.Collections;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -43,6 +49,9 @@ class EmailNotificationServiceTest {
     private UserEntity creator;
     private UserEntity assignee;
 
+    private List<TicketHistoryEntity> history;
+    private List<CommentEntity> comments;
+
     /**
      * Initializes mock entities and environment properties before each test.
      * <p>
@@ -64,6 +73,8 @@ class EmailNotificationServiceTest {
                 .createdBy(creator)
                 .assignedTo(assignee)
                 .build();
+        history = Collections.emptyList();
+        comments = Collections.emptyList();
     }
 
     /**
@@ -75,7 +86,7 @@ class EmailNotificationServiceTest {
     void sendStatusChangeNotification_WithAssignee_SendsTwoEmails() {
         when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
 
-        emailNotificationService.sendStatusChangeNotification(mockTicket, "OPEN", "IN_PROGRESS");
+        emailNotificationService.sendStatusChangeNotification(mockTicket, "OPEN", "IN_PROGRESS",history,comments);
 
         verify(mailSender, times(2)).createMimeMessage();
         verify(mailSender, times(2)).send(any(MimeMessage.class));
@@ -91,7 +102,7 @@ class EmailNotificationServiceTest {
         mockTicket.setAssignedTo(null); // Remove assignee
         when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
 
-        emailNotificationService.sendStatusChangeNotification(mockTicket, "OPEN", "IN_PROGRESS");
+        emailNotificationService.sendStatusChangeNotification(mockTicket, "OPEN", "IN_PROGRESS",history,comments);
 
         verify(mailSender, times(1)).createMimeMessage();
         verify(mailSender, times(1)).send(any(MimeMessage.class));
@@ -107,7 +118,7 @@ class EmailNotificationServiceTest {
     void sendAssigneeChangeNotification_SendsToCreatorAndAssignee() {
         when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
 
-        emailNotificationService.sendAssigneeChangeNotification(mockTicket, assignee);
+        emailNotificationService.sendAssigneeChangeNotification(mockTicket, assignee,history,comments);
 
         verify(mailSender, times(2)).createMimeMessage();
         verify(mailSender, times(2)).send(any(MimeMessage.class));
@@ -126,7 +137,7 @@ class EmailNotificationServiceTest {
         doThrow(new MailSendException("SMTP timeout")).when(mailSender).send(any(MimeMessage.class));
 
         org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> {
-            emailNotificationService.sendStatusChangeNotification(mockTicket, "OPEN", "IN_PROGRESS");
+            emailNotificationService.sendStatusChangeNotification(mockTicket, "OPEN", "IN_PROGRESS",history,comments);
         });
 
         verify(mailSender, times(2)).send(any(MimeMessage.class));
