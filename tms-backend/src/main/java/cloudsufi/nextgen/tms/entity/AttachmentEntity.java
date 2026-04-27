@@ -31,7 +31,7 @@ public class AttachmentEntity {
     private Long id;
 
     @Lob
-    @Column(name = "file", nullable = false)
+    @Column(name = "file", columnDefinition = "MEDIUMBLOB",nullable = false)
     private byte[] file;
 
     @Enumerated(EnumType.STRING)

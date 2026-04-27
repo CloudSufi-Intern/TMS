@@ -400,23 +400,26 @@ public class TicketService {
             ticket.setUpdatedAt(LocalDateTime.now());
             TicketEntity updatedTicket = ticketRepository.save(ticket);
 
-            TicketHistoryEntity history = TicketHistoryEntity.builder()
+            TicketHistoryEntity historyLog = TicketHistoryEntity.builder()
                     .description(auditLogBuilder.toString().trim())
                     .ticket(updatedTicket)
                     .createdBy(currentUser)
                     .createdAt(LocalDateTime.now())
                     .build();
-            ticketHistoryRepository.save(history);
+            ticketHistoryRepository.save(historyLog);
+
+            List<TicketHistoryEntity> history = ticketHistoryRepository.findByTicketId(ticketId);
+            List<CommentEntity> comments = commentRepository.findByTicketIdOrderByCreatedAtAsc(ticketId);
 
             if (statusChanged) {
                 emailNotificationService.sendStatusChangeNotification(
-                        updatedTicket, oldStatusString, updatedTicket.getStatus().name()
+                        updatedTicket, oldStatusString, updatedTicket.getStatus().name(), history, comments
                 );
             }
 
             if (assigneeChanged) {
                 emailNotificationService.sendAssigneeChangeNotification(
-                        updatedTicket, updatedTicket.getAssignedTo()
+                        updatedTicket, updatedTicket.getAssignedTo(), history, comments
                 );
             }
 
@@ -454,6 +457,11 @@ public class TicketService {
             CommentEntity savedComment = commentRepository.save(comment);
             log.info("Comment saved successfully for Ticket ID: {}", ticketId);
 
+//            List<TicketHistoryEntity> history = ticketHistoryRepository.findByTicketId(ticketId);
+//            List<CommentEntity> comments = commentRepository.findByTicketIdOrderByCreatedAtAsc(ticketId);
+
+           // emailNotificationService.sendStatusChangeNotification(ticket, ticket.getStatus().name(), ticket.getStatus().name(), history, comments);
+
             return toCommentResponseDTO(savedComment);
         }
 
@@ -490,4 +498,3 @@ public class TicketService {
                     .build();
         }
     }
-
