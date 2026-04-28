@@ -236,7 +236,7 @@ public class TicketService {
      * Helper method to fetch and map attachment BLOBs to safe metadata DTOs.
      */
     private List<TicketDetailsResponse.AttachmentMetadata> fetchAndMapAttachments(Long ticketId) {
-        return attachmentRepository.findByTicketId(ticketId).stream()
+        return attachmentRepository.findByTicket_IdOrderByUploadedAtDesc(ticketId).stream()
                 .map(attr -> TicketDetailsResponse.AttachmentMetadata.builder()
                         .id(attr.getId())
                         .fileType(attr.getFileType() != null ? attr.getFileType().name() : "UNKNOWN")
@@ -249,7 +249,7 @@ public class TicketService {
      * Helper method to fetch and map chronological audit logs.
      */
     private List<TicketDetailsResponse.TicketHistory> fetchAndMapHistory(Long ticketId) {
-        return ticketHistoryRepository.findByTicketId(ticketId).stream()
+        return ticketHistoryRepository.findByTicket_IdOrderByCreatedAtDesc(ticketId).stream()
                 .map(logEntity -> TicketDetailsResponse.TicketHistory.builder()
                         .id(logEntity.getId())
                         .description(logEntity.getDescription())
@@ -339,8 +339,8 @@ public class TicketService {
                 .assignedAt(ticket.getAssignedAt())
                 .createdAt(ticket.getCreatedAt())
                 .updatedAt(ticket.getUpdatedAt())
-                .commentCount((int)commentRepository.countByTicketId(ticket.getId()))
-                .attachmentCount((int)attachmentRepository.countByTicketId(ticket.getId()))
+                .commentCount((int)commentRepository.countByTicket_Id(ticket.getId()))
+                .attachmentCount((int)attachmentRepository.countByTicket_Id(ticket.getId()))
                 .build();
     }
 
@@ -410,8 +410,8 @@ public class TicketService {
                     .build();
             ticketHistoryRepository.save(historyLog);
 
-            List<TicketHistoryEntity> history = ticketHistoryRepository.findByTicketId(ticketId);
-            List<CommentEntity> comments = commentRepository.findByTicketIdOrderByCreatedAtAsc(ticketId);
+            List<TicketHistoryEntity> history = ticketHistoryRepository.findByTicket_IdOrderByCreatedAtDesc(ticketId);
+            List<CommentEntity> comments = commentRepository.findByTicket_IdOrderByCreatedAtDesc(ticketId);
 
             if (statusChanged) {
                 emailNotificationService.sendStatusChangeNotification(
@@ -459,11 +459,6 @@ public class TicketService {
             CommentEntity savedComment = commentRepository.save(comment);
             log.info("Comment saved successfully for Ticket ID: {}", ticketId);
 
-//            List<TicketHistoryEntity> history = ticketHistoryRepository.findByTicketId(ticketId);
-//            List<CommentEntity> comments = commentRepository.findByTicketIdOrderByCreatedAtAsc(ticketId);
-
-           // emailNotificationService.sendStatusChangeNotification(ticket, ticket.getStatus().name(), ticket.getStatus().name(), history, comments);
-
             return toCommentResponseDTO(savedComment);
         }
 
@@ -482,7 +477,7 @@ public class TicketService {
                 throw new ResourceNotFoundException("Ticket not found with ID: " + ticketId);
             }
 
-            return commentRepository.findByTicketIdOrderByCreatedAtAsc(ticketId)
+            return commentRepository.findByTicket_IdOrderByCreatedAtDesc(ticketId)
                     .stream()
                     .map(this::toCommentResponseDTO)
                     .toList();
