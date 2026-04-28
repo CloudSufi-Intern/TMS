@@ -213,7 +213,7 @@ const TicketDetail = () => {
           throw new Error(err.message || 'Failed to add comment');
         }
         const savedComment = await response.json();
-        setComments((prev) => [...prev, savedComment]);
+        setComments((prev) => [savedComment, ...prev]);
         setComment('');
         showToast('Comment added successfully');
       } catch (err) {
@@ -275,7 +275,7 @@ const TicketDetail = () => {
       localUrl: URL.createObjectURL(file),
     }));
 
-    setAttachments((prev) => [...prev, ...newAttachments]);
+    setAttachments((prev) => [...newAttachments, ...prev]);
     showToast(`${selectedFiles.length} file(s) attached successfully`);
     e.target.value = '';
   };

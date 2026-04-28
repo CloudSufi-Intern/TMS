@@ -28,13 +28,13 @@ public interface TicketRepository extends JpaRepository<TicketEntity, Long> {
      * @author Yashas Yadav
      */
     @Query("""
-            SELECT t FROM TicketEntity t
-            JOIN FETCH t.createdBy cb
-            LEFT JOIN FETCH t.assignedTo a
-            LEFT JOIN FETCH t.approver ap
-            WHERE t.createdBy = :user OR t.assignedTo = :user
-            ORDER BY t.createdAt DESC
-            """)
+        SELECT t FROM TicketEntity t
+        JOIN FETCH t.createdBy cb
+        LEFT JOIN FETCH t.assignedTo a
+        LEFT JOIN FETCH t.approver ap
+        WHERE t.createdBy = :user OR t.assignedTo = :user
+        ORDER BY t.createdAt DESC
+        """)
     List<TicketEntity> findAllByCreatedByOrAssignedTo(@Param("user") UserEntity user);
     long countByStatus(cloudsufi.nextgen.tms.enums.Status status);
 }

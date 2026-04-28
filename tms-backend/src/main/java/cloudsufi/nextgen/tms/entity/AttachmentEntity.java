@@ -31,7 +31,7 @@ public class AttachmentEntity {
     private Long id;
 
     @Lob
-    @Column(name = "file", columnDefinition = "MEDIUMBLOB",nullable = false)
+    @Column(name = "file", columnDefinition = "MEDIUMBLOB", nullable = false)
     private byte[] file;
 
     @Enumerated(EnumType.STRING)
@@ -39,16 +39,14 @@ public class AttachmentEntity {
     private FileType fileType;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ticket_id", nullable = false)
+    @JoinColumn(name = "ticket_id", nullable = false, updatable = false)
     private TicketEntity ticket;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "uploaded_by", nullable = false)
+    @JoinColumn(name = "uploaded_by", nullable = false, updatable = false)
     private UserEntity uploadedBy;
 
     @CreationTimestamp
     @Column(name = "uploaded_at", nullable = false, updatable = false)
     private LocalDateTime uploadedAt;
-
-
 }

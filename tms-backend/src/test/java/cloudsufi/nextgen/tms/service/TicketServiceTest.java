@@ -282,7 +282,7 @@ class TicketServiceTest {
                 .fileType(FileType.IMAGE)
                 .file(new byte[1024])
                 .build();
-        when(attachmentRepository.findByTicketId(ticketId)).thenReturn(List.of(mockAttachment));
+        when(attachmentRepository.findByTicket_IdOrderByUploadedAtDesc(ticketId)).thenReturn(List.of(mockAttachment));
 
         TicketHistoryEntity mockHistory = TicketHistoryEntity.builder()
                 .id(1L)
@@ -290,7 +290,7 @@ class TicketServiceTest {
                 .createdBy(mockUser)
                 .createdAt(LocalDateTime.now())
                 .build();
-        when(ticketHistoryRepository.findByTicketId(ticketId)).thenReturn(List.of(mockHistory));
+        when(ticketHistoryRepository.findByTicket_IdOrderByCreatedAtDesc(ticketId)).thenReturn(List.of(mockHistory));
 
         TicketDetailsResponse response = ticketService.getTicketById(ticketId);
 
@@ -304,8 +304,8 @@ class TicketServiceTest {
         assertThat(response.getHistory().get(0).getDescription()).isEqualTo("Ticket Created");
 
         verify(ticketRepository, times(1)).findById(ticketId);
-        verify(attachmentRepository, times(1)).findByTicketId(ticketId);
-        verify(ticketHistoryRepository, times(1)).findByTicketId(ticketId);
+        verify(attachmentRepository, times(1)).findByTicket_IdOrderByUploadedAtDesc(ticketId);
+        verify(ticketHistoryRepository, times(1)).findByTicket_IdOrderByCreatedAtDesc(ticketId);
     }
     /**
      * Tests the behavior when attempting to retrieve a ticket that does not exist.
@@ -326,8 +326,8 @@ class TicketServiceTest {
                 .hasMessageContaining("Ticket not found with ID: " + invalidId);
 
         verify(ticketRepository, times(1)).findById(invalidId);
-        verify(attachmentRepository, never()).findByTicketId(anyLong());
-        verify(ticketHistoryRepository, never()).findByTicketId(anyLong());
+        verify(attachmentRepository, never()).findByTicket_IdOrderByUploadedAtDesc(anyLong());
+        verify(ticketHistoryRepository, never()).findByTicket_IdOrderByCreatedAtDesc(anyLong());
     }
 
     @Test
