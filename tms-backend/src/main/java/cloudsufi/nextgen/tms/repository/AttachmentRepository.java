@@ -12,4 +12,5 @@ import java.util.Collection;
  **/
 public interface AttachmentRepository extends JpaRepository<AttachmentEntity, Long> {
     List<AttachmentEntity> findByTicketId(Long ticketId);
+    long countByTicketId(Long ticketId);
 }

@@ -29,3 +29,29 @@ export const getUserDetails = async (username) => {
 
   return await response.json();
 };
+
+/**
+ * Searches for users by username prefix.
+ * @param {string} username - The partial username (prefix).
+ * @returns {Promise<Array>} List of user suggestions [{id, username}].
+ * @throws {Error} If the request fails.
+ * @author Vishwas Vaidya
+ */
+
+export const searchUsers = async (username) => {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${BASE_URL}/api/user/search?username=${username}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to search users');
+  }
+
+  return await response.json();
+};
