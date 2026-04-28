@@ -341,7 +341,7 @@ const TicketDetail = () => {
   const renderCommentWithMentions = (text) => {
     if (!text) return null;
 
-    const parts = text.split(/(@\w+)/g);
+    const parts = text.split(/(@[a-zA-Z0-9]+(?:\s[a-zA-Z0-9]+)?)/g);
 
     return parts.map((part, index) => {
       if (part.startsWith('@')) {
