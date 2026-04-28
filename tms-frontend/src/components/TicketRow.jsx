@@ -37,7 +37,7 @@ const TicketRow = ({ ticket, onClick }) => {
       {/* Title + description */}
       <div className="ticket-info">
         <div className="ticket-title-wrap">
-          {statusIcons[status]}
+          {statusIcons[status?.toLowerCase()]}
           <span className="ticket-title">{title}</span>
         </div>
         <div className="ticket-desc">{description || "Not Available" }</div>
@@ -46,12 +46,12 @@ const TicketRow = ({ ticket, onClick }) => {
 
       {/* Status */}
       <div className="col-status">
-        <Badge type={status} />
+        <Badge type={status?.toLowerCase()} />
       </div>
 
       {/* Priority */}
       <div className="col-priority">
-        <Badge type={priority} />
+        <Badge type={priority?.toLowerCase()} />
       </div>
 
      {/* Assigned To */}
