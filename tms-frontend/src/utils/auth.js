@@ -18,7 +18,14 @@
     * all cases where the user is considered logged out.
     */
    const token = localStorage.getItem('token');
-   return token !== null && token !== undefined && token !== '';
+   if (!token) return false;
+
+   const expiry = localStorage.getItem('sessionExpiry');
+   if (expiry && Date.now() > parseInt(expiry)) {
+     return false;
+   }
+
+   return true;
  };
 
  export const removeToken = () => {
@@ -27,4 +34,5 @@
    localStorage.removeItem('role');
    localStorage.removeItem('email');
    localStorage.removeItem('userName');
+   localStorage.removeItem('sessionExpiry');
  };

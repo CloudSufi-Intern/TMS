@@ -13,9 +13,17 @@ import {isLoggedIn} from '../utils/auth';
  * @author-Smriti Bajpai
  */
  const ProtectedRoute =({children})=>{
-     if(!isLoggedIn()){
-         return <Navigate to="/login" replace/>
+     const token = localStorage.getItem('token');
+     const expiry = localStorage.getItem('sessionExpiry');
+     const isExpired = expiry && Date.now() > parseInt(expiry);
+
+     if(!token || isExpired){
+         if (token && isExpired) {
+             sessionStorage.setItem('sessionExpired', 'true');
+             return <Navigate to="/login" replace />
          }
-     return children;
+         return <Navigate to="/login" replace/>
      }
+     return children;
+ }
 export default ProtectedRoute;
