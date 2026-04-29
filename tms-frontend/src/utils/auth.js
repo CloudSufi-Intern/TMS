@@ -1,38 +1,51 @@
 /**
- * Utility functions for JWT token management.
- * Centralizes all localStorage token operations so they
- * are consistent across the entire frontend.
+ * Token & session utilities.
  *
- * @author Smriti Bajpai
+ * The JWT carries an `exp` claim (seconds since epoch). We decode it locally
+ * to detect expiry on app boot and proactively kick the user out, so they
+ * don't see a stale dashboard before the first 401 fires.
  */
+
+export const decodeJwt = (token) => {
+  try {
+    const payload = token.split('.')[1];
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+};
+
+export const isTokenExpired = (token) => {
+  const payload = decodeJwt(token);
+  if (!payload || !payload.exp) return true;
+  return payload.exp * 1000 <= Date.now();
+};
 
 /**
- * Checks if a user is currently logged in by verifying
- * that a token exists in localStorage.
- * @returns {boolean} true if token exists, false otherwise
+ * Returns the milliseconds until the token expires, or 0 if already expired.
  */
- export const isLoggedIn = () => {
-   /*
-    * localStorage.getItem returns null if key does not exist.
-    * We check for null, undefined and empty string to cover
-    * all cases where the user is considered logged out.
-    */
-   const token = localStorage.getItem('token');
-   if (!token) return false;
+export const msUntilExpiry = (token) => {
+  const payload = decodeJwt(token);
+  if (!payload || !payload.exp) return 0;
+  return Math.max(0, payload.exp * 1000 - Date.now());
+};
 
-   const expiry = localStorage.getItem('sessionExpiry');
-   if (expiry && Date.now() > parseInt(expiry)) {
-     return false;
-   }
+export const isLoggedIn = () => {
+  const token = localStorage.getItem('token');
+  if (!token) return false;
+  if (isTokenExpired(token)) {
+    removeToken();
+    return false;
+  }
+  return true;
+};
 
-   return true;
- };
-
- export const removeToken = () => {
-   localStorage.removeItem('token');
-   localStorage.removeItem('tokenType');
-   localStorage.removeItem('role');
-   localStorage.removeItem('email');
-   localStorage.removeItem('userName');
-   localStorage.removeItem('sessionExpiry');
- };
+export const removeToken = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('tokenType');
+  localStorage.removeItem('role');
+  localStorage.removeItem('email');
+  localStorage.removeItem('userName');
+  localStorage.removeItem('sessionExpiry');
+};

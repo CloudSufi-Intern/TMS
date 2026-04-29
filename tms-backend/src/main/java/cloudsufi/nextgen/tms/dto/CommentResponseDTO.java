@@ -4,10 +4,11 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
- * DTO for returning comment data to the frontend.
- * @author Priyanshu Gupta
+ * Comment payload returned to the frontend.
+ * Now includes the list of attachments associated with this comment.
  */
 @Data
 @Builder
@@ -17,4 +18,5 @@ public class CommentResponseDTO {
     private String content;
     private String createdBy;
     private LocalDateTime createdAt;
+    private List<AttachmentMetadataDTO> attachments;
 }

@@ -46,7 +46,12 @@ describe('Login Page', () => {
 
   it('should store JWT in localStorage and navigate to /dashboard on valid credentials', async () => {
     login.mockResolvedValueOnce({
-      data: { token: 'mock.jwt.token', tokenType: 'Bearer' },
+      data: {
+        token: 'mock.jwt.token',
+        tokenType: 'Bearer',
+        role: 'ENGINEERING',
+        user: { email: 'yashas@cs.com', username: 'yashascs' },
+      },
     });
 
     renderLogin();
@@ -68,7 +73,7 @@ describe('Login Page', () => {
 
   it('should call AuthService.login with correct credentials', async () => {
     login.mockResolvedValueOnce({
-      data: { token: 'tok', tokenType: 'Bearer' },
+      data: { token: 'tok', tokenType: 'Bearer', role: 'IT', user: { email: 'yashas@cs.com', username: 'yashascs' } },
     });
 
     renderLogin();
@@ -195,7 +200,7 @@ describe('Login Page', () => {
       expect(btn).toBeDisabled();
     });
 
-    resolveFn({ data: { token: 't', tokenType: 'Bearer' } });
+    resolveFn({ data: { token: 't', tokenType: 'Bearer', role: 'IT', user: { email: 'x@x.com', username: 'x' } } });
   });
 });
 

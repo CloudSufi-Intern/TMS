@@ -9,16 +9,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 /**
- * REST Controller for managing ticket-related operations in the Task Management System.
- * Provides endpoints to retrieve and raise tickets.
- *
- * All endpoints require a valid JWT token — enforced by the security filter chain.
- *
- * @author Ansh Parnami
+ * REST controller for ticket operations.
+ * All endpoints require authentication (enforced by SecurityConfig).
  */
 @RestController
 @RequestMapping("/api/tickets")
@@ -28,100 +25,75 @@ public class TicketController {
 
     private final TicketService ticketService;
 
-    /**
-     * Endpoint to raise a new support ticket.
-     * The user's identity is automatically extracted from their JWT token.
-     *
-     * @param request The ticket details (title, description, priority, attachments)
-     * @return A success response with the new Ticket ID
-     * @author Ansh Parnami
-     */
-
-    /**
-     * Endpoint to raise a new support ticket.
-     * * [Ticket Update]: Integrated strict request validation using @Valid.
-     * Updated parameter binding to @ModelAttribute to correctly consume
-     * multipart/form-data, allowing seamless frontend integration with file attachments.
-     * * @param request The validated ticket details including optional files
-     * @author Priyanshu Gupta
-     */
+    /** Raise a new ticket (multipart, supports attachments). */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<TicketRaiseResponse> raiseTicket(@ModelAttribute TicketRaiseRequest request) {
-        log.info("REST request received to raise a new ticket with title: '{}'", request.getTitle());
-        TicketRaiseResponse response = ticketService.raiseTicket(request);
-
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+        log.info("Raising ticket: {}", request.getTitle());
+        return new ResponseEntity<>(ticketService.raiseTicket(request), HttpStatus.CREATED);
     }
 
-    /**
-     * Retrieves the complete details of a specific ticket, including its history and attachments.
-     * * @param id The ID of the ticket to retrieve.
-     * @return 200 OK with the TicketDetailsResponse payload.
-     */
+    /** Get full ticket detail. */
     @GetMapping("/{id}")
     public ResponseEntity<TicketDetailsResponse> getTicketById(@PathVariable("id") Long id) {
-        log.info("REST request to get Ticket ID: {}", id);
-        TicketDetailsResponse response = ticketService.getTicketById(id);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ticketService.getTicketById(id));
     }
 
     /**
-     * GET /api/tickets/my
-     *
-     * Returns all tickets where the authenticated user is either the creator (raiser)
-     * or the assignee. Used to populate the dashboard page.
-     *
-     * The user's identity is resolved automatically from the JWT token via
-     * the Spring Security context — no request parameters required.
-     *
-     * @return 200 OK with a list of {@link TicketResponseDTO}, empty list if none found.
-     * @author Yashas Yadav
+     * Tickets where the user is creator or assignee.
+     * Supports sorting via {@code sortBy} (createdAt, updatedAt, priority,
+     * status, title) and {@code sortDir} (asc, desc).
      */
     @GetMapping("/my")
-    public ResponseEntity<List<TicketResponseDTO>> getMyTickets() {
-        log.info("REST request received: GET /api/tickets/my");
-        List<TicketResponseDTO> tickets = ticketService.getMyTickets();
-        return ResponseEntity.ok(tickets);
+    public ResponseEntity<List<TicketResponseDTO>> getMyTickets(
+            @RequestParam(required = false, defaultValue = "createdAt") String sortBy,
+            @RequestParam(required = false, defaultValue = "desc") String sortDir) {
+        return ResponseEntity.ok(ticketService.getMyTickets(sortBy, sortDir));
     }
 
-
-    /**
-     * Partially updates a ticket.
-     * Expects a JSON body with only the fields that need changing.
-     */
+    /** Partial update — status / priority / assignee. */
     @PatchMapping("/{ticketId}")
     public ResponseEntity<TicketResponseDTO> updateTicket(
             @PathVariable Long ticketId,
             @RequestBody TicketUpdatePatchRequest request) {
-
-        TicketResponseDTO updatedTicket = ticketService.updateTicket(ticketId, request);
-        return ResponseEntity.ok(updatedTicket);
+        return ResponseEntity.ok(ticketService.updateTicket(ticketId, request));
     }
+
     /**
-     * POST /api/tickets/{ticketId}/comments
-     * Adds a new comment to a ticket.
-     *
-     * @author Priyanshu Gupta
+     * Add a comment with optional attachments (multipart).
+     * Frontend sends fields: content (text), attachments[] (files).
      */
-    @PostMapping("/{ticketId}/comments")
-    public ResponseEntity<CommentResponseDTO> addComment(
+    @PostMapping(value = "/{ticketId}/comments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CommentResponseDTO> addCommentMultipart(
+            @PathVariable Long ticketId,
+            @RequestParam("content") String content,
+            @RequestParam(value = "attachments", required = false) List<MultipartFile> attachments) {
+        CommentRequestDTO dto = new CommentRequestDTO();
+        dto.setContent(content);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ticketService.addComment(ticketId, dto, attachments));
+    }
+
+    /**
+     * JSON fallback for adding a comment with no attachments. Kept so older
+     * clients that POST application/json continue to work.
+     */
+    @PostMapping(value = "/{ticketId}/comments", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<CommentResponseDTO> addCommentJson(
             @PathVariable Long ticketId,
             @Valid @RequestBody CommentRequestDTO request) {
-        log.info("REST request to add comment to Ticket ID: {}", ticketId);
-        CommentResponseDTO response = ticketService.addComment(ticketId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ticketService.addComment(ticketId, request, null));
     }
+
     /**
-     * GET /api/tickets/{ticketId}/comments
-     * Retrieves all comments for a ticket.
-     *
-     * @author Priyanshu Gupta
+     * Get comments. Supports {@code sortDir=asc|desc} (default asc) and
+     * {@code author=<username>} for filtering by comment author.
      */
     @GetMapping("/{ticketId}/comments")
     public ResponseEntity<List<CommentResponseDTO>> getComments(
-            @PathVariable Long ticketId) {
-        log.info("REST request to get comments for Ticket ID: {}", ticketId);
-        List<CommentResponseDTO> comments = ticketService.getComments(ticketId);
-        return ResponseEntity.ok(comments);
+            @PathVariable Long ticketId,
+            @RequestParam(required = false, defaultValue = "asc") String sortDir,
+            @RequestParam(required = false) String author) {
+        return ResponseEntity.ok(ticketService.getComments(ticketId, sortDir, author));
     }
 }

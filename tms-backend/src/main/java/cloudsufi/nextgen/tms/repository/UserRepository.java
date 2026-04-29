@@ -5,11 +5,13 @@ package cloudsufi.nextgen.tms.repository;
  **/
 import cloudsufi.nextgen.tms.dto.UserSuggestionDTO;
 import cloudsufi.nextgen.tms.entity.UserEntity;
+import cloudsufi.nextgen.tms.enums.Role;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.util.List;
 import java.util.Optional;
 
 /*
@@ -33,6 +35,8 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     Optional<UserEntity> findByEmail(String email);
 
     Optional<UserEntity> findByUsername(String username);
+
+    List<UserEntity> findAllByRole(Role role);
 
     /**
      * Finds users whose usernames start with the specified prefix using a native SQL query.

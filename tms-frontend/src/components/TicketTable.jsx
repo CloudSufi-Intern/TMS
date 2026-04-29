@@ -1,39 +1,32 @@
 import TicketRow from './TicketRow';
 
-/**
- * Full ticket table with column headers and rows
- * @param {array} tickets - Filtered list of ticket objects
- * @param {function} onTicketClick - Handler when a row is clicked
- *@author-Smriti Bajpai
- */
+const thCls = 'py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider';
+
 const TicketTable = ({ tickets, onTicketClick }) => (
-  <div className="ticket-table">
-    {/* Column Headers */}
-    <div className="table-header">
-      <div className="th">Ticket</div>
-      <div className="th">Status</div>
-      <div className="th">Priority</div>
-      <div className="th">Assigned To</div>
-      <div className="th">Activity</div>
+  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    {/* Column headers */}
+    <div className="grid grid-cols-[1fr_120px_110px_160px_90px] gap-4 px-4 border-b border-slate-200 bg-slate-50">
+      <div className={thCls}>Ticket</div>
+      <div className={thCls}>Status</div>
+      <div className={thCls}>Priority</div>
+      <div className={thCls}>Assigned To</div>
+      <div className={thCls}>Activity</div>
     </div>
 
-    {/* Rows or Empty State */}
     {tickets.length === 0 ? (
-      <div className="empty-state">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      <div className="py-20 flex flex-col items-center justify-center text-slate-400">
+        <svg className="w-10 h-10 mb-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <p>No tickets found</p>
+        <p className="text-sm font-medium text-slate-500">No tickets found</p>
+        <p className="text-xs text-slate-400 mt-1">Try adjusting your filters or create a new ticket.</p>
       </div>
     ) : (
-      tickets.map((ticket) => (
-        <TicketRow
-          key={ticket.id}
-          ticket={ticket}
-          onClick={() => onTicketClick(ticket)}
-        />
-      ))
+      <div>
+        {tickets.map((ticket) => (
+          <TicketRow key={ticket.id} ticket={ticket} onClick={() => onTicketClick(ticket)} />
+        ))}
+      </div>
     )}
   </div>
 );

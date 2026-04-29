@@ -6,12 +6,13 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-
 /**
- * Repository representing a Ticket's History in the SQL Database
- * @author Ansh Parnami
- **/
+ * Repository for ticket history (audit log) entries.
+ */
 @Repository
 public interface TicketHistoryRepository extends JpaRepository<TicketHistoryEntity, Long> {
-    List<TicketHistoryEntity> findByTicket_IdOrderByCreatedAtDesc(Long ticketId);
+
+    List<TicketHistoryEntity> findByTicketIdOrderByCreatedAtAsc(Long ticketId);
+
+    List<TicketHistoryEntity> findByTicketId(Long ticketId);
 }

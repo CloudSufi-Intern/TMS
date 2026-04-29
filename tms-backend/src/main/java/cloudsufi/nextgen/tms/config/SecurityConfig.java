@@ -1,71 +1,85 @@
 package cloudsufi.nextgen.tms.config;
 
 import cloudsufi.nextgen.tms.filter.JwtAuthenticationFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 /**
- * This class configures Spring Security for the TMS application.
- * It defines the core security filter chain and integrates the custom
- * JWT authentication filter. The configuration ensures that the application
- * follows stateless authentication using JWT tokens.
- * Default Spring Security login forms and HTTP basic authentication
- * are disabled since authentication is strictly handled via JWT.
+ * Spring Security configuration.
  *
- * @author Ansh Parnami
+ * <ul>
+ *   <li>Stateless — no HTTP sessions; auth comes from the JWT filter.</li>
+ *   <li>Method-level security enabled so {@code @PreAuthorize} works in services and controllers.</li>
+ *   <li>Public endpoints: signup, login, swagger, OpenAPI JSON, error.</li>
+ *   <li>401 responses are returned as a structured JSON ErrorResponseDTO so the
+ *       frontend can detect token expiry without parsing HTML.</li>
+ * </ul>
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
+
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /**
-     * Configures the HTTP security rules for the application.
-     * Disables CSRF, sets session management to stateless, permits the
-     * signup and login endpoints publicly, and requires authentication
-     * for all other requests.
-     *
-     * @param http the {@link HttpSecurity} object to modify.
-     * @return the fully configured {@link SecurityFilterChain}.
-     * @throws Exception if an error occurs while building the security configuration.
-     */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
-
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Enable CORS support in Spring Security
-                // This tells Spring Security to use the CorsFilter defined in CorsConfig
                 .cors(Customizer.withDefaults())
-
-                .csrf(httpSecurityCsrfConfigurer -> httpSecurityCsrfConfigurer.disable())
-                .formLogin(form->form.disable())
-                .httpBasic(basic->basic.disable())
-                .sessionManagement(session->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth-> auth
-                        .requestMatchers("/api/auth/signup", "/api/auth/login").permitAll()
+                .csrf(csrf -> csrf.disable())
+                .formLogin(form -> form.disable())
+                .httpBasic(basic -> basic.disable())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/api/auth/signup",
+                                "/api/auth/login",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/error",
+                                "/actuator/health"
+                        ).permitAll()
                         .anyRequest().authenticated())
+                .exceptionHandling(eh -> eh
+                        .authenticationEntryPoint((req, res, ex) -> writeJsonError(res, 401, "Unauthorized — please log in.", req.getRequestURI()))
+                        .accessDeniedHandler((req, res, ex) -> writeJsonError(res, 403, "Forbidden — you do not have permission to perform this action.", req.getRequestURI()))
+                )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
-    /**
-     * Provides a BCrypt password encoder bean for hashing passwords on sign-up
-     * and verifying them on login.
-     *
-     * @return a {@link BCryptPasswordEncoder} instance
-     * @author Yashas Yadav
-     */
+    private void writeJsonError(HttpServletResponse res, int status, String message, String path) throws java.io.IOException {
+        res.setStatus(status);
+        res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now().toString());
+        body.put("status", status);
+        body.put("error", status == 401 ? "Unauthorized" : "Forbidden");
+        body.put("message", message);
+        body.put("path", path);
+        res.getWriter().write(objectMapper.writeValueAsString(body));
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

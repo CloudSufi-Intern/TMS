@@ -20,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
@@ -48,6 +49,9 @@ class UserServiceTest {
 
     @MockitoBean
     private UserRepository userRepository;
+
+    @MockitoBean
+    private PasswordEncoder passwordEncoder;
 
     private UserEntity mockUser;
 
@@ -132,6 +136,7 @@ class UserServiceTest {
 
         when(userRepository.existsByEmail("ansh@cs.com")).thenReturn(false);
         when(userRepository.existsByUsername("anshcs")).thenReturn(false);
+        when(passwordEncoder.encode("password123")).thenReturn("$2a$10$hashedpassword");
         when(userRepository.save(any(UserEntity.class))).thenReturn(mockUser);
 
         UserEntity savedUser = userService.addUser(request);
@@ -242,8 +247,8 @@ class UserServiceTest {
     void searchUsers_whenUsernameIsNull_shouldThrowException() {
 
 
-        IllegalArgumentException exception =
-                assertThrows(IllegalArgumentException.class, () ->
+        BadRequestException exception =
+                assertThrows(BadRequestException.class, () ->
                         userService.searchUsers(null, 0, 10)
                 );
 
@@ -269,8 +274,8 @@ class UserServiceTest {
     void searchUsers_whenUsernameTooShort_shouldThrowException() {
 
 
-        IllegalArgumentException exception =
-                assertThrows(IllegalArgumentException.class, () ->
+        BadRequestException exception =
+                assertThrows(BadRequestException.class, () ->
                         userService.searchUsers("v", 0, 10)
                 );
 

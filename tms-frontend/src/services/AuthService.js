@@ -1,31 +1,10 @@
-import axios from 'axios';
+import apiClient from '../utils/apiClient';
 
 /**
- * Service module for authentication API calls.
- * Centralises the backend base URL and all auth-related HTTP requests.
- *
- * @author Yashas Yadav
+ * Auth API: signup + login.
+ * Uses the central axios client so 401 handling and token attachment are uniform.
  */
 
-const BASE_URL = 'http://localhost:8080';
+export const signUp = (payload) => apiClient.post('/api/auth/signup', payload);
 
-const authClient = axios.create({
-  baseURL: BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
-});
-
-/**
- * Sends a sign-up request to POST /api/auth/signup.
- *
- * @param {Object} payload - { username, email, password, phoneNo, role }
- * @returns {Promise} Axios response
- */
-export const signUp = (payload) => authClient.post('/api/auth/signup', payload);
-
-/**
- * Sends a login request to POST /api/auth/login.
- *
- * @param {Object} payload - { email, password }
- * @returns {Promise} Axios response
- */
-export const login = (payload) => authClient.post('/api/auth/login', payload);
+export const login = (payload) => apiClient.post('/api/auth/login', payload);
