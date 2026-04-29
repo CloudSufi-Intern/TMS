@@ -66,7 +66,7 @@ const Login = () => {
       localStorage.setItem('email', response.data.user.email);
       localStorage.setItem("userName", response.data.user.username);
 
-      const expiryTime = Date.now() + 2 * 60 * 1000;
+      const expiryTime = Date.now() + 15 * 60 * 1000;
       localStorage.setItem('sessionExpiry', expiryTime.toString());
 
       navigate('/dashboard');
