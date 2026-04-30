@@ -64,30 +64,6 @@ Frontend runs at `http://localhost:5173`, backend at `http://localhost:8080`.
 
 ---
 
-## Free-tier deployment (Render)
-
-The included `render.yaml` is a Render Blueprint. The free plan covers both web services. For the database, point the backend at any free MySQL provider — Aiven, Railway, or Clever Cloud all offer a free tier that fits this app.
-
-### Steps
-
-1. **Push to GitHub.** Render reads from a connected repo.
-2. **Provision a free MySQL** somewhere. Grab the JDBC URL, username, password.
-3. **In Render, click "New → Blueprint"** and select the repo. It picks up `render.yaml` and creates two services.
-4. **Set the secrets** (the ones with `sync: false` in `render.yaml`):
-   - `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`
-   - `MAIL_USERNAME`, `MAIL_PASSWORD` (Gmail App Password)
-   - `TMS_BASE_URL`, `TMS_CORS_ALLOWED_ORIGINS` — set to the deployed frontend URL once it's known (you'll do this after the first deploy)
-   - `VITE_API_BASE_URL` on the frontend service — set to the deployed backend URL
-5. **Deploy.** First boot takes 5–10 minutes (Maven dependency download).
-6. **Update CORS + base URL.** After you have both URLs, fill in `TMS_BASE_URL` and `TMS_CORS_ALLOWED_ORIGINS` on the backend service and trigger a redeploy.
-
-### Free-tier caveats
-
-- Render free instances spin down after 15 min idle. First request after spin-down takes ~30s. That's why login may feel slow on the first hit.
-- Free MySQL providers usually cap storage at 1 GB. With 16 MB BLOB attachments stored in-DB, plan for ~50 attachments before you hit the cap. Upgrade to S3-backed storage if you outgrow this.
-
----
-
 ## Environment variables
 
 ### Backend (`tms-backend/.env`)
