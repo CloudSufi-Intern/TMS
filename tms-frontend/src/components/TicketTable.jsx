@@ -5,12 +5,14 @@ const thCls = 'py-2.5 text-left text-xs font-semibold text-slate-500 uppercase t
 const TicketTable = ({ tickets, onTicketClick }) => (
   <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
     {/* Column headers */}
-    <div className="grid grid-cols-[1fr_120px_110px_160px_90px] gap-4 px-4 border-b border-slate-200 bg-slate-50">
+    <div className="grid grid-cols-[1fr_90px] md:grid-cols-[1fr_110px_100px_80px] lg:grid-cols-[1fr_120px_110px_160px_130px_130px_90px] gap-4 px-4 border-b border-slate-200 bg-slate-50">
       <div className={thCls}>Ticket</div>
       <div className={thCls}>Status</div>
-      <div className={thCls}>Priority</div>
-      <div className={thCls}>Assigned To</div>
-      <div className={thCls}>Activity</div>
+      <div className={`${thCls} hidden md:block`}>Priority</div>
+      <div className={`${thCls} hidden lg:block`}>Assigned To</div>
+      <div className={`${thCls} hidden lg:block`}>Created</div>
+      <div className={`${thCls} hidden lg:block`}>Updated</div>
+      <div className={`${thCls} hidden md:block`}>Activity</div>
     </div>
 
     {tickets.length === 0 ? (

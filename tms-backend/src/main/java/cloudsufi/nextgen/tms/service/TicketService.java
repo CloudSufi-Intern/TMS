@@ -17,6 +17,7 @@ import cloudsufi.nextgen.tms.repository.AttachmentRepository;
 import cloudsufi.nextgen.tms.repository.TicketHistoryRepository;
 import cloudsufi.nextgen.tms.repository.TicketRepository;
 import cloudsufi.nextgen.tms.repository.UserRepository;
+import cloudsufi.nextgen.tms.dto.AttachmentMetadataDTO;
 import cloudsufi.nextgen.tms.dto.CommentRequestDTO;
 import cloudsufi.nextgen.tms.dto.CommentResponseDTO;
 import cloudsufi.nextgen.tms.entity.CommentEntity;
@@ -201,6 +202,7 @@ public class TicketService {
             try {
                 AttachmentEntity attachmentEntity = AttachmentEntity.builder()
                         .file(file.getBytes())
+                        .fileName(file.getOriginalFilename())
                         .fileType(determinedFileType)
                         .ticket(ticket)
                         .uploadedBy(uploader)
@@ -215,6 +217,33 @@ public class TicketService {
             }
         });
         log.info("Attachment processing completed.");
+    }
+
+    private void saveCommentAttachments(List<MultipartFile> attachments, TicketEntity ticket, CommentEntity comment, UserEntity uploader) {
+        attachments.forEach(file -> {
+            if (file.isEmpty()) throw new BadRequestException("Attached file '" + file.getOriginalFilename() + "' cannot be empty.");
+            String contentType = file.getContentType();
+            FileType determinedFileType;
+            if (contentType != null && contentType.startsWith("image/")) {
+                determinedFileType = FileType.IMAGE;
+            } else if ("application/pdf".equalsIgnoreCase(contentType)) {
+                determinedFileType = FileType.PDF;
+            } else {
+                throw new BadRequestException("Unsupported file type: " + contentType + ". Only images and PDFs are allowed.");
+            }
+            try {
+                attachmentRepository.save(AttachmentEntity.builder()
+                        .file(file.getBytes())
+                        .fileName(file.getOriginalFilename())
+                        .fileType(determinedFileType)
+                        .ticket(ticket)
+                        .comment(comment)
+                        .uploadedBy(uploader)
+                        .build());
+            } catch (java.io.IOException e) {
+                throw new FileProcessingException("Failed to read attachment data for file: " + file.getOriginalFilename());
+            }
+        });
     }
 
 
@@ -487,10 +516,9 @@ public class TicketService {
             CommentEntity savedComment = commentRepository.save(comment);
             log.info("Comment saved successfully for Ticket ID: {}", ticketId);
 
-//            List<TicketHistoryEntity> history = ticketHistoryRepository.findByTicketId(ticketId);
-//            List<CommentEntity> comments = commentRepository.findByTicketIdOrderByCreatedAtAsc(ticketId);
-
-           // emailNotificationService.sendStatusChangeNotification(ticket, ticket.getStatus().name(), ticket.getStatus().name(), history, comments);
+            if (attachments != null && !attachments.isEmpty()) {
+                saveCommentAttachments(attachments, ticket, savedComment, currentUser);
+            }
 
             return toCommentResponseDTO(savedComment);
         }
@@ -528,11 +556,23 @@ public class TicketService {
  * Maps a CommentEntity to a CommentResponseDTO.
  */
         private CommentResponseDTO toCommentResponseDTO(CommentEntity comment) {
+            List<AttachmentMetadataDTO> attachmentDTOs = attachmentRepository
+                    .findByCommentIdOrderByUploadedAtAsc(comment.getId())
+                    .stream()
+                    .map(a -> AttachmentMetadataDTO.builder()
+                            .id(a.getId())
+                            .fileName(a.getFileName())
+                            .fileType(a.getFileType() != null ? a.getFileType().name() : "UNKNOWN")
+                            .fileSizeInBytes(a.getFile() != null ? a.getFile().length : 0)
+                            .build())
+                    .toList();
+
             return CommentResponseDTO.builder()
                     .id(comment.getId())
                     .content(comment.getContent())
                     .createdBy(comment.getCreatedBy().getUsername())
                     .createdAt(comment.getCreatedAt())
+                    .attachments(attachmentDTOs)
                     .build();
         }
     }

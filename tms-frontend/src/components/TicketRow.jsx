@@ -9,7 +9,12 @@ const statusDot = {
 };
 
 const TicketRow = ({ ticket, onClick }) => {
-  const { title, description, status, priority, assignedTo, createdBy, commentCount, attachmentCount } = ticket;
+  const { title, description, status, priority, assignedTo, createdBy, createdAt, updatedAt, commentCount, attachmentCount } = ticket;
+  const formatDate = (val) => val
+    ? new Date(val).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '—';
+  const formattedDate = formatDate(createdAt);
+  const formattedUpdated = formatDate(updatedAt);
   const statusKey   = status?.toLowerCase();
   const dotCls      = statusDot[statusKey] || 'bg-slate-400';
   const assigneeInitial = assignedTo && assignedTo !== 'Unassigned'
@@ -19,7 +24,7 @@ const TicketRow = ({ ticket, onClick }) => {
 
   return (
     <div
-      className="grid grid-cols-[1fr_120px_110px_160px_90px] items-center gap-4 px-4 py-3.5 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group"
+      className="grid grid-cols-[1fr_90px] md:grid-cols-[1fr_110px_100px_80px] lg:grid-cols-[1fr_120px_110px_160px_130px_130px_90px] items-center gap-4 px-4 py-3.5 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group"
       onClick={onClick}
     >
       {/* Title + meta */}
@@ -34,16 +39,24 @@ const TicketRow = ({ ticket, onClick }) => {
           <p className="text-xs text-slate-400 truncate ml-4">{description}</p>
         )}
         <p className="text-xs text-slate-400 ml-4 mt-0.5">by {creatorName}</p>
+        {/* Inline info shown only on mobile */}
+        <div className="flex items-center gap-2 mt-1.5 ml-4 md:hidden">
+          <Badge type={priority?.toLowerCase()} />
+          {assigneeInitial && (
+            <span className="text-xs text-slate-500 truncate">{assignedTo}</span>
+          )}
+          <span className="text-xs text-slate-400 ml-auto">{formattedDate}</span>
+        </div>
       </div>
 
       {/* Status */}
       <div><Badge type={statusKey} /></div>
 
       {/* Priority */}
-      <div><Badge type={priority?.toLowerCase()} /></div>
+      <div className="hidden md:block"><Badge type={priority?.toLowerCase()} /></div>
 
       {/* Assigned to */}
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="hidden lg:flex items-center gap-2 min-w-0">
         {assigneeInitial ? (
           <>
             <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
@@ -56,8 +69,14 @@ const TicketRow = ({ ticket, onClick }) => {
         )}
       </div>
 
+      {/* Created date */}
+      <div className="hidden lg:block text-xs text-slate-500">{formattedDate}</div>
+
+      {/* Updated date */}
+      <div className="hidden lg:block text-xs text-slate-500">{formattedUpdated}</div>
+
       {/* Activity */}
-      <div className="flex items-center gap-3">
+      <div className="hidden md:flex items-center gap-3">
         <span className="flex items-center gap-1 text-xs text-slate-400">
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />

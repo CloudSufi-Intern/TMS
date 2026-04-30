@@ -18,6 +18,8 @@ const Dashboard = () => {
     tickets, stats,
     search, setSearch,
     statusFilter, setStatusFilter,
+    dateFrom, setDateFrom,
+    dateTo, setDateTo,
     sortBy, setSortBy,
     sortDir, setSortDir,
     createTicket, loading, error,
@@ -61,6 +63,8 @@ const Dashboard = () => {
             <Toolbar
               search={search} onSearch={setSearch}
               statusFilter={statusFilter} onStatusFilter={setStatusFilter}
+              dateFrom={dateFrom} onDateFrom={setDateFrom}
+              dateTo={dateTo} onDateTo={setDateTo}
               sortBy={sortBy} onSortBy={setSortBy}
               sortDir={sortDir} onSortDir={setSortDir}
             />

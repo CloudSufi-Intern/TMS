@@ -14,6 +14,8 @@ export const useTickets = () => {
   const { tickets, setTickets } = useTicketContext();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortDir, setSortDir] = useState('desc');
   const [loading, setLoading] = useState(false);
@@ -40,6 +42,8 @@ export const useTickets = () => {
 
   const currentUserName = localStorage.getItem('userName');
 
+  const PRIORITY_WEIGHT = { URGENT: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+
   const filteredTickets = tickets.filter((ticket) => {
     const query = search.toLowerCase();
     const matchesSearch =
@@ -51,7 +55,19 @@ export const useTickets = () => {
       if (statusFilter === 'assigned') return ticket.assignedTo === currentUserName;
       return ticket.status?.toLowerCase() === statusFilter.toLowerCase();
     })();
-    return matchesSearch && matchesStatus;
+    const matchesDate = (() => {
+      const created = ticket.createdAt ? new Date(ticket.createdAt) : null;
+      if (!created) return true;
+      if (dateFrom && created < new Date(dateFrom)) return false;
+      if (dateTo && created > new Date(dateTo + 'T23:59:59')) return false;
+      return true;
+    })();
+    return matchesSearch && matchesStatus && matchesDate;
+  }).sort((a, b) => {
+    if (sortBy !== 'priority') return 0;
+    const wa = PRIORITY_WEIGHT[a.priority?.toUpperCase()] ?? 0;
+    const wb = PRIORITY_WEIGHT[b.priority?.toUpperCase()] ?? 0;
+    return sortDir === 'asc' ? wa - wb : wb - wa;
   });
   const stats = {
     open: tickets.filter((t) => t.status?.toUpperCase() === 'OPEN').length,
@@ -74,10 +90,10 @@ export const useTickets = () => {
     setSearch,
     statusFilter,
     setStatusFilter,
-    sortBy,
-    setSortBy,
-    sortDir,
-    setSortDir,
+    dateFrom, setDateFrom,
+    dateTo, setDateTo,
+    sortBy, setSortBy,
+    sortDir, setSortDir,
     createTicket,
     loading,
     error,
