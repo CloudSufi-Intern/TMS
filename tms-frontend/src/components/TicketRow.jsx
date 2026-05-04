@@ -1,80 +1,93 @@
 import Badge from './Badge';
 
-const statusIcons = {
-  open: (
-    <svg className="ticket-icon" style={{ color: '#3b82f6' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-    </svg>
-  ),
-  in_progress: (
-    <svg className="ticket-icon" style={{ color: '#ca8a04' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  ),
-  pending_approval: (
-    <svg className="ticket-icon" style={{ color: '#f97316' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  ),
-  resolved: (
-    <svg className="ticket-icon" style={{ color: '#22c55e' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  ),
+const statusDot = {
+  open:        'bg-blue-500',
+  in_progress: 'bg-amber-500',
+  on_hold:     'bg-orange-500',
+  resolved:    'bg-green-500',
+  closed:      'bg-slate-400',
 };
 
-/**
- * Single ticket row in the ticket list table
- * @param {object} ticket - Ticket data object
- * @param {function} onClick - Row click handler
- * @author-Smriti Bajpai
- */
 const TicketRow = ({ ticket, onClick }) => {
-  const { title, description, status, priority, category, assignedTo, createdBy, commentCount, attachmentCount, hasNotif } = ticket;
+  const { title, description, status, priority, assignedTo, createdBy, createdAt, updatedAt, commentCount, attachmentCount } = ticket;
+  const formatDate = (val) => val
+    ? new Date(val).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '—';
+  const formattedDate = formatDate(createdAt);
+  const formattedUpdated = formatDate(updatedAt);
+  const statusKey   = status?.toLowerCase();
+  const dotCls      = statusDot[statusKey] || 'bg-slate-400';
+  const assigneeInitial = assignedTo && assignedTo !== 'Unassigned'
+    ? assignedTo.charAt(0).toUpperCase()
+    : null;
+  const creatorName = typeof createdBy === 'object' ? createdBy?.name : (createdBy || 'Unknown');
 
   return (
-    <div className="ticket-row" onClick={onClick}>
-      {/* Title + description */}
-      <div className="ticket-info">
-        <div className="ticket-title-wrap">
-          {statusIcons[status?.toLowerCase()]}
-          <span className="ticket-title">{title}</span>
+    <div
+      className="grid grid-cols-[1fr_90px] md:grid-cols-[1fr_110px_100px_80px] lg:grid-cols-[1fr_120px_110px_160px_130px_130px_90px] items-center gap-4 px-4 py-3.5 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group"
+      onClick={onClick}
+    >
+      {/* Title + meta */}
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotCls}`} />
+          <span className="text-sm font-semibold text-slate-900 truncate group-hover:text-indigo-700 transition-colors">
+            {title}
+          </span>
         </div>
-        <div className="ticket-desc">{description || "Not Available" }</div>
-        <div className="ticket-creator">Created by {typeof createdBy === 'object' ? createdBy.name : (createdBy || "Unassigned")}</div>
+        {description && (
+          <p className="text-xs text-slate-400 truncate ml-4">{description}</p>
+        )}
+        <p className="text-xs text-slate-400 ml-4 mt-0.5">by {creatorName}</p>
+        {/* Inline info shown only on mobile */}
+        <div className="flex items-center gap-2 mt-1.5 ml-4 md:hidden">
+          <Badge type={priority?.toLowerCase()} />
+          {assigneeInitial && (
+            <span className="text-xs text-slate-500 truncate">{assignedTo}</span>
+          )}
+          <span className="text-xs text-slate-400 ml-auto">{formattedDate}</span>
+        </div>
       </div>
 
       {/* Status */}
-      <div className="col-status">
-        <Badge type={status?.toLowerCase()} />
-      </div>
+      <div><Badge type={statusKey} /></div>
 
       {/* Priority */}
-      <div className="col-priority">
-        <Badge type={priority?.toLowerCase()} />
+      <div className="hidden md:block"><Badge type={priority?.toLowerCase()} /></div>
+
+      {/* Assigned to */}
+      <div className="hidden lg:flex items-center gap-2 min-w-0">
+        {assigneeInitial ? (
+          <>
+            <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
+              {assigneeInitial}
+            </div>
+            <span className="text-sm text-slate-700 truncate">{assignedTo}</span>
+          </>
+        ) : (
+          <span className="text-sm text-slate-400 italic">Unassigned</span>
+        )}
       </div>
 
-     {/* Assigned To */}
-     <div className="col-assigned">
-       {assignedTo || "Unassigned"}
-     </div>
+      {/* Created date */}
+      <div className="hidden lg:block text-xs text-slate-500">{formattedDate}</div>
 
+      {/* Updated date */}
+      <div className="hidden lg:block text-xs text-slate-500">{formattedUpdated}</div>
 
       {/* Activity */}
-      <div className="col-activity">
-        <span className="activity-item">
-          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round"
-              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+      <div className="hidden md:flex items-center gap-3">
+        <span className="flex items-center gap-1 text-xs text-slate-400">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
           </svg>
-          {commentCount || 0} comments
+          {commentCount || 0}
         </span>
-        <span className="activity-item">
-          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round"
-              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+        <span className="flex items-center gap-1 text-xs text-slate-400">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
           </svg>
-          {attachmentCount || 0} attachments
+          {attachmentCount || 0}
         </span>
       </div>
     </div>

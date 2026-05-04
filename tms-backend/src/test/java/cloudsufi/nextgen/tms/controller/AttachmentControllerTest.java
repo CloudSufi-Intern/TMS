@@ -2,96 +2,103 @@ package cloudsufi.nextgen.tms.controller;
 
 import cloudsufi.nextgen.tms.entity.AttachmentEntity;
 import cloudsufi.nextgen.tms.enums.FileType;
-import cloudsufi.nextgen.tms.exception.GlobalExceptionHandler;
 import cloudsufi.nextgen.tms.exception.ResourceNotFoundException;
+import cloudsufi.nextgen.tms.repository.UserRepository;
 import cloudsufi.nextgen.tms.service.AttachmentService;
-
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Unit tests for AttachmentController
+ * Web layer tests for AttachmentController.
  *
- * This class uses Mockito + standalone MockMvc.
- * It avoids dependency issues with @MockBean / @WebMvcTest.
- *
- * Tests covered:
- * - Successful file download
- * - Attachment not found
- *
- * @author Smriti Bajpai
+ * @author Yashas Yadav
  */
-@ExtendWith(MockitoExtension.class)
+@SpringBootTest
+@AutoConfigureMockMvc(addFilters = false)
 class AttachmentControllerTest {
 
+    @Autowired
     private MockMvc mockMvc;
 
-    @Mock
+    @MockitoBean
     private AttachmentService attachmentService;
 
-    @InjectMocks
-    private AttachmentController attachmentController;
+    @MockitoBean
+    private UserRepository userRepository;
 
-    /**
-     * Setup MockMvc in standalone mode
-     */
-    @BeforeEach
-    void setUp() {
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(attachmentController)
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
-    }
-
-    /**
-     * Test: Successful download of attachment
-     */
     @Test
-    @DisplayName("GET /api/attachments/{id}/download - Success")
-    void downloadAttachment_success() throws Exception {
-
+    @DisplayName("GET /api/attachments/{id}/download - Should return 200 with PDF content")
+    void downloadAttachment_whenPDF_shouldReturnOkWithPdfContentType() throws Exception {
+        byte[] fileBytes = "mock pdf content".getBytes();
         AttachmentEntity attachment = AttachmentEntity.builder()
                 .id(1L)
-                .file("hello".getBytes())
+                .fileName("report.pdf")
                 .fileType(FileType.PDF)
+                .file(fileBytes)
                 .build();
 
         when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
 
-
         mockMvc.perform(get("/api/attachments/1/download"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Disposition", "attachment; filename=\"file_1\""))
-                .andExpect(content().bytes("hello".getBytes()))
-                .andExpect(content().contentType(MediaType.APPLICATION_PDF));
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"report.pdf\""))
+                .andExpect(content().bytes(fileBytes));
     }
 
-    /**
-     * Test: Attachment not found
-     */
     @Test
-    @DisplayName("GET /api/attachments/{id}/download - Not Found")
-    void downloadAttachment_notFound() throws Exception {
+    @DisplayName("GET /api/attachments/{id}/download - Should return 200 with image content type")
+    void downloadAttachment_whenImage_shouldReturnOkWithImageContentType() throws Exception {
+        byte[] imageBytes = new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47};
+        AttachmentEntity attachment = AttachmentEntity.builder()
+                .id(2L)
+                .fileName("screenshot.png")
+                .fileType(FileType.IMAGE)
+                .file(imageBytes)
+                .build();
 
-        when(attachmentService.getAttachmentById(1L))
-                .thenThrow(new ResourceNotFoundException("Attachment not found"));
+        when(attachmentService.getAttachmentById(2L)).thenReturn(attachment);
 
+        mockMvc.perform(get("/api/attachments/2/download"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"screenshot.png\""));
+    }
 
-        mockMvc.perform(get("/api/attachments/1/download"))
+    @Test
+    @DisplayName("GET /api/attachments/{id}/download - Should use fallback filename when fileName is blank")
+    void downloadAttachment_whenFileNameBlank_shouldUseFallbackFilename() throws Exception {
+        AttachmentEntity attachment = AttachmentEntity.builder()
+                .id(5L)
+                .fileName("")
+                .fileType(FileType.PDF)
+                .file("data".getBytes())
+                .build();
+
+        when(attachmentService.getAttachmentById(5L)).thenReturn(attachment);
+
+        mockMvc.perform(get("/api/attachments/5/download"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"file_5\""));
+    }
+
+    @Test
+    @DisplayName("GET /api/attachments/{id}/download - Should return 404 when attachment not found")
+    void downloadAttachment_whenNotFound_shouldReturn404() throws Exception {
+        when(attachmentService.getAttachmentById(999L))
+                .thenThrow(new ResourceNotFoundException("Attachment not found with id: 999"));
+
+        mockMvc.perform(get("/api/attachments/999/download"))
                 .andExpect(status().isNotFound());
     }
 }

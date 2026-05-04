@@ -9,18 +9,13 @@ import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Comprehensive ticket details payload, including attachment metadata
+ * and chronological audit history.
+ */
 @Data
 @Builder
-/**
- * Data Transfer Object (DTO) representing the comprehensive details of a support ticket.
- * This class serves as the response payload for the "Get Ticket by ID" API, aggregating
- * core ticket information, assignment details, approval workflows, lightweight attachment
- * metadata, and a chronological history of audit logs.
- *
- * @author Ansh Parnami
- */
 public class TicketDetailsResponse {
-
 
     private Long id;
     private String title;
@@ -40,27 +35,23 @@ public class TicketDetailsResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-
     private List<AttachmentMetadata> attachments;
     private List<TicketHistory> history;
 
+    /**
+     * Lightweight metadata for a file attached to the ticket. fileName is
+     * surfaced so the frontend can display the original upload name.
+     */
     @Data
     @Builder
-    /**
-     * Nested DTO representing lightweight metadata for a file attached to the ticket.
-     * By returning only metadata (like file size derived from the database BLOB) instead
-     * of the actual binary data, the API ensures high performance and reduced payload size.
-     */
     public static class AttachmentMetadata {
         private Long id;
+        private String fileName;
         private String fileType;
         private long fileSizeInBytes;
     }
-    /**
-     * Nested DTO representing a single event in the ticket's audit trail.
-     * This provides a chronological view of actions taken on the ticket, including
-     * what changed, who made the change, and when it occurred.
-     */
+
+    /** Single audit-log event. */
     @Data
     @Builder
     public static class TicketHistory {

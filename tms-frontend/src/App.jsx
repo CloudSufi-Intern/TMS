@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import Dashboard from "./pages/Dashboard";
-import TicketDetail from "./pages/ticketDetails";
+import Landing from './pages/Landing';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import Dashboard from './pages/Dashboard';
+import TicketDetail from './pages/ticketDetails';
+import Analytics from './pages/Analytics';
 import ProtectedRoute from './components/ProtectedRoute';
 import { removeToken } from './utils/auth';
 import { useToast } from './hooks/useToast';
@@ -11,12 +13,6 @@ import { useTicketContext } from './context/TicketContext';
 import Toast from './components/Toast';
 import './dashboard.css'; // For Toast styling
 
-/**
- * Root component handling application routing
- *
- * @author Vedanshu Garg
- * @returns Application routes
- */
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -74,24 +70,22 @@ function App() {
   return (
     <>
       <Routes>
-          {/* Public routes — accessible without login */}
-                  <Route path="/"      element={<Signup />} />
-                  <Route path="/login" element={<Login />} />
+        <Route path="/"         element={<Landing />} />
+        <Route path="/home"     element={<Landing />} />
+        <Route path="/login"    element={<Login />} />
+        <Route path="/register" element={<Signup />} />
 
-                  {/* Protected routes — redirect to /login if not authenticated */}
-                  <Route path="/dashboard" element={
-                    <ProtectedRoute>
-                      <Dashboard />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/tickets/:id" element={
-                    <ProtectedRoute>
-                      <TicketDetail />
-                    </ProtectedRoute>
-                  } />
+        <Route path="/dashboard" element={
+          <ProtectedRoute><Dashboard /></ProtectedRoute>
+        } />
+        <Route path="/tickets/:id" element={
+          <ProtectedRoute><TicketDetail /></ProtectedRoute>
+        } />
+        <Route path="/analytics" element={
+          <ProtectedRoute><Analytics /></ProtectedRoute>
+        } />
 
-                  {/* redirect unknown URLs to login */}
-                  <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toast visible={toast.visible} message={toast.message} isError={toast.isError} />
     </>

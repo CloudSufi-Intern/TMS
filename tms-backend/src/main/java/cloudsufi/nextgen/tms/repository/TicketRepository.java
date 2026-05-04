@@ -2,39 +2,63 @@ package cloudsufi.nextgen.tms.repository;
 
 import cloudsufi.nextgen.tms.entity.TicketEntity;
 import cloudsufi.nextgen.tms.entity.UserEntity;
+import cloudsufi.nextgen.tms.enums.Status;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import cloudsufi.nextgen.tms.enums.Status;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Repository representing a Ticket in the SQL Database
- * @author Ansh Parnami
- **/
+ * Ticket repository.
+ */
 public interface TicketRepository extends JpaRepository<TicketEntity, Long> {
 
-    /**
-     * Fetches all tickets where the given user is either the creator (raiser)
-     * or the assignee, ordered by creation date descending (newest first).
-     *
-     * Uses JOIN FETCH on createdBy and LEFT JOIN FETCH on assignedTo and approver
-     * to load all required associations in a single query, avoiding N+1 problems
-     * on the dashboard page load.
-     *
-     * @param user The authenticated user entity.
-     * @return List of tickets relevant to this user for the dashboard.
-     * @author Yashas Yadav
-     */
     @Query("""
-        SELECT t FROM TicketEntity t
-        JOIN FETCH t.createdBy cb
-        LEFT JOIN FETCH t.assignedTo a
-        LEFT JOIN FETCH t.approver ap
-        WHERE t.createdBy = :user OR t.assignedTo = :user
-        ORDER BY t.createdAt DESC
-        """)
-    List<TicketEntity> findAllByCreatedByOrAssignedTo(@Param("user") UserEntity user);
-    long countByStatus(cloudsufi.nextgen.tms.enums.Status status);
+            SELECT t FROM TicketEntity t
+            JOIN FETCH t.createdBy cb
+            LEFT JOIN FETCH t.assignedTo a
+            LEFT JOIN FETCH t.approver ap
+            WHERE t.createdBy = :user OR t.assignedTo = :user
+            """)
+    List<TicketEntity> findAllByCreatedByOrAssignedTo(@Param("user") UserEntity user, Sort sort);
+
+    @Query("""
+            SELECT t FROM TicketEntity t
+            JOIN FETCH t.createdBy cb
+            LEFT JOIN FETCH t.assignedTo a
+            LEFT JOIN FETCH t.approver ap
+            """)
+    List<TicketEntity> findAllWithAssociations(Sort sort);
+
+    long countByStatus(Status status);
+
+    long countByStatusAndCreatedByOrStatusAndAssignedTo(Status s1, UserEntity u1, Status s2, UserEntity u2);
+
+    // --- Global analytics queries (IT) ---
+
+    @Query("SELECT t.priority, COUNT(t) FROM TicketEntity t GROUP BY t.priority")
+    List<Object[]> countGroupByPriority();
+
+    @Query("SELECT t.assignedTo.username, COUNT(t) FROM TicketEntity t WHERE t.assignedTo IS NOT NULL GROUP BY t.assignedTo")
+    List<Object[]> countGroupByAssignee();
+
+    @Query("SELECT t FROM TicketEntity t WHERE t.createdAt >= :since")
+    List<TicketEntity> findCreatedSince(@Param("since") LocalDateTime since);
+
+    // --- User-scoped analytics queries (non-IT) ---
+
+    @Query("SELECT t.priority, COUNT(t) FROM TicketEntity t WHERE t.createdBy = :user OR t.assignedTo = :user GROUP BY t.priority")
+    List<Object[]> countGroupByPriorityForUser(@Param("user") UserEntity user);
+
+    @Query("SELECT t.assignedTo.username, COUNT(t) FROM TicketEntity t WHERE t.assignedTo IS NOT NULL AND (t.createdBy = :user OR t.assignedTo = :user) GROUP BY t.assignedTo")
+    List<Object[]> countGroupByAssigneeForUser(@Param("user") UserEntity user);
+
+    @Query("SELECT t FROM TicketEntity t WHERE t.createdAt >= :since AND (t.createdBy = :user OR t.assignedTo = :user)")
+    List<TicketEntity> findCreatedSinceForUser(@Param("since") LocalDateTime since, @Param("user") UserEntity user);
+
+    @Query("SELECT COUNT(t) FROM TicketEntity t WHERE t.status = :status AND (t.createdBy = :user OR t.assignedTo = :user)")
+    long countByStatusForUser(@Param("status") Status status, @Param("user") UserEntity user);
 }

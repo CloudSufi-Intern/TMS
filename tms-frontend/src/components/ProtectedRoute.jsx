@@ -1,29 +1,38 @@
-import {Navigate} from 'react-router-dom';
-import {isLoggedIn} from '../utils/auth';
+import { useEffect } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { isLoggedIn, msUntilExpiry, removeToken } from '../utils/auth';
 
 /**
- * ProtectedRoute component — guards routes that require authentication.
- * If user is not logged in, redirects to login page immediately.
- * If user is logged in, renders the requested page normally.
+ * Guards routes that require authentication.
  *
- * Used in App.jsx to wrap any route that needs authentication.
- *
- * @param {JSX.Element} children - The page component to render if authenticated
- * @returns {JSX.Element} The page or a redirect to /login
- * @author-Smriti Bajpai
+ * Schedules a logout timer aligned with the JWT's `exp` claim so the user
+ * is redirected to /login?expired=1 exactly when the token expires mid-session.
  */
- const ProtectedRoute =({children})=>{
-     const token = localStorage.getItem('token');
-     const expiry = localStorage.getItem('sessionExpiry');
-     const isExpired = expiry && Date.now() > parseInt(expiry);
+const ProtectedRoute = ({ children }) => {
+  const navigate = useNavigate();
 
-     if(!token || isExpired){
-         if (token && isExpired) {
-             sessionStorage.setItem('sessionExpired', 'true');
-             return <Navigate to="/login" replace />
-         }
-         return <Navigate to="/login" replace/>
-     }
-     return children;
- }
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const ms = msUntilExpiry(token);
+    if (ms <= 0) {
+      removeToken();
+      navigate('/login?expired=1', { replace: true });
+      return;
+    }
+    const timer = setTimeout(() => {
+      removeToken();
+      navigate('/login?expired=1', { replace: true });
+    }, ms);
+
+    return () => clearTimeout(timer);
+  }, [navigate]);
+
+  if (!isLoggedIn()) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+};
+
 export default ProtectedRoute;

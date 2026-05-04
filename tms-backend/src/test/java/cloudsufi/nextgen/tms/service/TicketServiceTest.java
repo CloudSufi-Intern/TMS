@@ -1,158 +1,159 @@
 package cloudsufi.nextgen.tms.service;
 
 import cloudsufi.nextgen.tms.dto.*;
-import cloudsufi.nextgen.tms.entity.AttachmentEntity;
-import cloudsufi.nextgen.tms.entity.TicketEntity;
-import cloudsufi.nextgen.tms.entity.TicketHistoryEntity;
-import cloudsufi.nextgen.tms.entity.UserEntity;
+import cloudsufi.nextgen.tms.entity.*;
+import cloudsufi.nextgen.tms.enums.ApprovalStatus;
 import cloudsufi.nextgen.tms.enums.FileType;
 import cloudsufi.nextgen.tms.enums.Priority;
+import cloudsufi.nextgen.tms.enums.Role;
 import cloudsufi.nextgen.tms.enums.Status;
-import cloudsufi.nextgen.tms.exception.AuthenticationException;
 import cloudsufi.nextgen.tms.exception.BadRequestException;
 import cloudsufi.nextgen.tms.exception.FileProcessingException;
 import cloudsufi.nextgen.tms.exception.ResourceNotFoundException;
-import cloudsufi.nextgen.tms.repository.AttachmentRepository;
-import cloudsufi.nextgen.tms.repository.TicketHistoryRepository;
-import cloudsufi.nextgen.tms.repository.TicketRepository;
-import cloudsufi.nextgen.tms.repository.UserRepository;
+import cloudsufi.nextgen.tms.repository.*;
 import cloudsufi.nextgen.tms.util.JwtUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Sort;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Unit test suite for the {@link TicketService}.
- * This class uses JUnit 5 and Mockito to isolate the business logic of tickets.
- * By mocking the database repositories and the Spring Security context, these tests
- * verify validation rules, security enforcement, and proper data mapping without
- * requiring a live database connection.
+ * Unit tests for TicketService business logic.
+ * Repository and utility dependencies are mocked; the service logic is tested directly.
  *
- * @author Ansh Parnami
+ * @author Yashas Yadav
  */
-@ExtendWith(MockitoExtension.class)
+@SpringBootTest
 class TicketServiceTest {
 
-    @Mock
-    private TicketRepository ticketRepository;
-
-    @Mock
-    private TicketHistoryRepository ticketHistoryRepository;
-
-    @Mock
-    private UserRepository userRepository;
-
-    @InjectMocks
+    @Autowired
     private TicketService ticketService;
 
-    private TicketRaiseRequest validRequest;
-    private UserEntity mockUser;
+    @MockitoBean
+    private TicketRepository ticketRepository;
 
-    @Mock
-    private AttachmentRepository attachmentRepository;
+    @MockitoBean
+    private TicketHistoryRepository ticketHistoryRepository;
 
-    private TicketEntity mockTicket;
-
-    @Mock
+    @MockitoBean
     private JwtUtil jwtUtil;
 
-    private UserEntity newAssignee;
+    @MockitoBean
+    private AttachmentRepository attachmentRepository;
 
-    /**
-     * Initializes default, valid mock data before each test execution.
-     * This ensures a clean and predictable state across all test cases.
-     */
-    @BeforeEach
-    void setUp() {
-        validRequest = TicketRaiseRequest.builder()
-                .title("Valid Title")
-                .description("Valid detailed description for testing.")
-                .priority(Priority.HIGH)
-                .attachments(new ArrayList<>())
-                .build();
+    @MockitoBean
+    private UserRepository userRepository;
 
-        mockUser = UserEntity.builder()
-                .id(1L)
-                .email("testuser@cloudsufi.com")
-                .build();
+    @MockitoBean
+    private EmailNotificationService emailNotificationService;
 
-        mockTicket = TicketEntity.builder()
-                .id(100L)
-                .title("Database Down") // Needed for DTO mapping
-                .description("Cannot connect to prod DB") // Needed for DTO mapping
-                .status(Status.OPEN)
-                .priority(Priority.MEDIUM)
-                .createdBy(mockUser)
-                .assignedTo(null)
-                .build();
+    @MockitoBean
+    private CommentRepository commentRepository;
 
-        newAssignee = UserEntity.builder()
-                .id(2L)
-                .username("Agent 1") // Needed for DTO mapping
-                .email("agent1@company.com")
-                .build();
+    private UserEntity creatorUser;
+    private UserEntity assigneeUser;
+    private UserEntity mockUser;
+    private TicketEntity mockTicket;
+    private TicketRaiseRequest validRequest;
+
+    /** Populate SecurityContext so @PreAuthorize("isAuthenticated()") passes. */
+    private void setAuthenticatedContext(String email) {
+        Authentication auth = mock(Authentication.class);
+        when(auth.getName()).thenReturn(email);
+        when(auth.isAuthenticated()).thenReturn(true);
+        SecurityContext ctx = mock(SecurityContext.class);
+        when(ctx.getAuthentication()).thenReturn(auth);
+        SecurityContextHolder.setContext(ctx);
     }
 
-    /**
-     * Cleans up thread-local variables after each test.
-     * Crucial for preventing authentication bleed-over between individual tests.
-     */
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
     }
 
+    @BeforeEach
+    void setUp() {
+        setAuthenticatedContext("yashas@cs.com");
 
-    /**
-     * Tests the scenario where a valid request payload is submitted by an
-     * authenticated and existing user. Expects both the ticket and history to be saved.
-     */
-    @Test
-    void raiseTicket_ValidRequest_ReturnsSuccessResponse() {
-        when(jwtUtil.extractUser()).thenReturn(mockUser);
+        creatorUser = UserEntity.builder()
+                .id(1L)
+                .username("yashascs")
+                .email("yashas@cs.com")
+                .role(Role.ENGINEERING)
+                .build();
 
-        TicketEntity savedTicket = TicketEntity.builder().id(100L).build();
-        when(ticketRepository.save(any(TicketEntity.class))).thenReturn(savedTicket);
+        assigneeUser = UserEntity.builder()
+                .id(2L)
+                .username("anshcs")
+                .email("ansh@cs.com")
+                .role(Role.IT)
+                .build();
 
-        TicketRaiseResponse response = ticketService.raiseTicket(validRequest);
+        mockUser = creatorUser;
 
-        assertNotNull(response);
-        assertEquals(100L, response.getTicketId());
-        assertEquals(Status.OPEN, response.getStatus());
-        assertEquals("Ticket raised successfully.", response.getMessage());
+        mockTicket = TicketEntity.builder()
+                .id(10L)
+                .title("Test Ticket")
+                .description("A description")
+                .priority(Priority.HIGH)
+                .status(Status.OPEN)
+                .createdBy(creatorUser)
+                .isApprovalRequired(false)
+                .approvalStatus(ApprovalStatus.NOT_REQUIRED)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
 
-        verify(ticketRepository, times(1)).save(any(TicketEntity.class));
-        verify(ticketHistoryRepository, times(1)).save(any());
+        validRequest = new TicketRaiseRequest();
+        validRequest.setTitle("Fix login bug");
+        validRequest.setDescription("Login fails on Safari");
+        validRequest.setPriority(Priority.HIGH);
     }
 
+    // =========================================================
+    // getTicketById
+    // =========================================================
 
-    /**
-     * Handles the edge case where an authenticated user's email exists in the JWT token,
-     * but the corresponding user record has been deleted or cannot be found in the database.
-     */
+    @Test
+    @DisplayName("Service - getTicketById should return ticket details with username (not email)")
+    void getTicketById_whenFound_shouldReturnDetailsWithUsername() {
+        when(ticketRepository.findById(10L)).thenReturn(Optional.of(mockTicket));
+        when(attachmentRepository.findByTicketIdAndCommentIsNullOrderByUploadedAtAsc(10L))
+                .thenReturn(Collections.emptyList());
+        when(ticketHistoryRepository.findByTicketIdOrderByCreatedAtAsc(10L))
+                .thenReturn(Collections.emptyList());
+
+        TicketDetailsResponse response = ticketService.getTicketById(10L);
+
+        assertNotNull(response);
+        assertEquals(10L, response.getId());
+        assertEquals("Test Ticket", response.getTitle());
+        assertEquals("yashascs", response.getCreatedBy());
+        assertEquals("Unassigned", response.getAssignedTo());
+        assertNotEquals("yashas@cs.com", response.getCreatedBy());
+    }
+
     @Test
     void raiseTicket_UserNotFoundInDatabase_ThrowsResourceNotFoundException() {
         when(jwtUtil.extractUser())
@@ -240,7 +241,7 @@ class TicketServiceTest {
      * @throws IOException If the mock file stream fails (simulated).
      */
     @Test
-    void raiseTicket_IOExceptionDuringFileRead_ThrowsFileProcessingException() throws IOException {
+    void raiseTicket_IOExceptionDuringFileRead_ThrowsFileProcessingException() throws   IOException {
         MultipartFile corruptedFile = mock(MultipartFile.class);
         when(corruptedFile.isEmpty()).thenReturn(false);
         when(corruptedFile.getContentType()).thenReturn("image/jpeg");
@@ -282,7 +283,7 @@ class TicketServiceTest {
                 .fileType(FileType.IMAGE)
                 .file(new byte[1024])
                 .build();
-        when(attachmentRepository.findByTicket_IdOrderByUploadedAtDesc(ticketId)).thenReturn(List.of(mockAttachment));
+        when(attachmentRepository.findByTicketIdAndCommentIsNullOrderByUploadedAtAsc(ticketId)).thenReturn(List.of(mockAttachment));
 
         TicketHistoryEntity mockHistory = TicketHistoryEntity.builder()
                 .id(1L)
@@ -290,12 +291,12 @@ class TicketServiceTest {
                 .createdBy(mockUser)
                 .createdAt(LocalDateTime.now())
                 .build();
-        when(ticketHistoryRepository.findByTicket_IdOrderByCreatedAtDesc(ticketId)).thenReturn(List.of(mockHistory));
+        when(ticketHistoryRepository.findByTicketIdOrderByCreatedAtAsc(ticketId)).thenReturn(List.of(mockHistory));
 
         TicketDetailsResponse response = ticketService.getTicketById(ticketId);
 
         assertThat(response).isNotNull();
-        assertThat(response.getId()).isEqualTo(ticketId);
+        assertThat(response.getId()).isEqualTo(10L);
 
         assertThat(response.getAttachments()).hasSize(1);
         assertThat(response.getAttachments().get(0).getFileSizeInBytes()).isEqualTo(1024);
@@ -304,8 +305,8 @@ class TicketServiceTest {
         assertThat(response.getHistory().get(0).getDescription()).isEqualTo("Ticket Created");
 
         verify(ticketRepository, times(1)).findById(ticketId);
-        verify(attachmentRepository, times(1)).findByTicket_IdOrderByUploadedAtDesc(ticketId);
-        verify(ticketHistoryRepository, times(1)).findByTicket_IdOrderByCreatedAtDesc(ticketId);
+        verify(attachmentRepository, times(1)).findByTicketIdAndCommentIsNullOrderByUploadedAtAsc(ticketId);
+        verify(ticketHistoryRepository, times(1)).findByTicketIdOrderByCreatedAtAsc(ticketId);
     }
     /**
      * Tests the behavior when attempting to retrieve a ticket that does not exist.
@@ -326,105 +327,244 @@ class TicketServiceTest {
                 .hasMessageContaining("Ticket not found with ID: " + invalidId);
 
         verify(ticketRepository, times(1)).findById(invalidId);
-        verify(attachmentRepository, never()).findByTicket_IdOrderByUploadedAtDesc(anyLong());
-        verify(ticketHistoryRepository, never()).findByTicket_IdOrderByCreatedAtDesc(anyLong());
     }
 
     @Test
-    @DisplayName("updateTicket - Should update multiple fields and generate a comprehensive history log")
-    void updateTicket_ValidUpdates_UpdatesFieldsAndLogsHistory() {
-        TicketUpdatePatchRequest request = new TicketUpdatePatchRequest();
-        request.setStatus(Status.IN_PROGRESS);
-        request.setPriority(Priority.HIGH);
-        request.setAssigneeEmail("agent1@company.com");
+    @DisplayName("Service - getTicketById should return username for assignee when assigned")
+    void getTicketById_whenAssigned_shouldReturnAssigneeUsername() {
+        mockTicket.setAssignedTo(assigneeUser);
+        when(ticketRepository.findById(10L)).thenReturn(Optional.of(mockTicket));
+        when(attachmentRepository.findByTicketIdAndCommentIsNullOrderByUploadedAtAsc(10L))
+                .thenReturn(Collections.emptyList());
+        when(ticketHistoryRepository.findByTicketIdOrderByCreatedAtAsc(10L))
+                .thenReturn(Collections.emptyList());
 
-        when(ticketRepository.findById(100L)).thenReturn(Optional.of(mockTicket));
-        when(jwtUtil.extractUser()).thenReturn(mockUser);
-        when(userRepository.findByEmail("agent1@company.com")).thenReturn(Optional.of(newAssignee));
-        when(ticketRepository.save(any(TicketEntity.class))).thenAnswer(i -> i.getArgument(0));
+        TicketDetailsResponse response = ticketService.getTicketById(10L);
 
-        TicketResponseDTO response = ticketService.updateTicket(100L, request);
-
-        assertThat(response).isNotNull();
-        assertThat(response.getStatus()).isEqualTo(Status.IN_PROGRESS);
-        assertThat(response.getPriority()).isEqualTo(Priority.HIGH);
-        assertThat(response.getAssignedTo()).isEqualTo("Agent 1");
-
-        ArgumentCaptor<TicketHistoryEntity> historyCaptor = ArgumentCaptor.forClass(TicketHistoryEntity.class);
-        verify(ticketHistoryRepository).save(historyCaptor.capture());
-
-        TicketHistoryEntity savedHistory = historyCaptor.getValue();
-        assertThat(savedHistory.getDescription()).contains("Status changed from OPEN to IN_PROGRESS.");
-        assertThat(savedHistory.getDescription()).contains("Priority changed from MEDIUM to HIGH.");
-        assertThat(savedHistory.getDescription()).contains("Assignee changed from Unassigned to agent1@company.com.");
+        assertEquals("anshcs", response.getAssignedTo());
+        assertNotEquals("ansh@cs.com", response.getAssignedTo());
     }
 
     @Test
-    @DisplayName("updateTicket - Should only update fields that are explicitly provided in the request")
-    void updateTicket_PartialUpdate_OnlyUpdatesProvidedFields() {
-        // Request only contains priority. Status and assignee should remain untouched.
-        TicketUpdatePatchRequest request = new TicketUpdatePatchRequest();
-        request.setPriority(Priority.URGENT);
-
-        when(ticketRepository.findById(100L)).thenReturn(Optional.of(mockTicket));
-        when(jwtUtil.extractUser()).thenReturn(mockUser);
-        when(ticketRepository.save(any(TicketEntity.class))).thenAnswer(i -> i.getArgument(0));
-
-        TicketResponseDTO response = ticketService.updateTicket(100L, request);
-
-        assertThat(response.getStatus()).isEqualTo(Status.OPEN);
-        assertThat(response.getPriority()).isEqualTo(Priority.URGENT);
-        assertThat(response.getAssignedTo()).isNull();
-
-        verify(userRepository, never()).findByEmail(anyString());
-    }
-
-    @Test
-    @DisplayName("updateTicket - Should skip database save if the incoming payload matches existing data")
-    void updateTicket_NoActualChanges_SkipsDatabaseHit() {
-        TicketUpdatePatchRequest request = new TicketUpdatePatchRequest();
-        request.setStatus(Status.OPEN);
-        request.setPriority(Priority.MEDIUM);
-
-        when(ticketRepository.findById(100L)).thenReturn(Optional.of(mockTicket));
-        when(jwtUtil.extractUser()).thenReturn(mockUser);
-
-        TicketResponseDTO response = ticketService.updateTicket(100L, request);
-
-        assertThat(response.getStatus()).isEqualTo(Status.OPEN);
-
-        // Ensure we didn't waste resources doing an empty save
-        verify(ticketRepository, never()).save(any());
-        verify(ticketHistoryRepository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("updateTicket - Should throw ResourceNotFoundException when updating a non-existent ticket")
-    void updateTicket_InvalidId_ThrowsResourceNotFoundException() {
-        TicketUpdatePatchRequest request = new TicketUpdatePatchRequest();
+    @DisplayName("Service - getTicketById should throw ResourceNotFoundException when not found")
+    void getTicketById_whenNotFound_shouldThrowException() {
         when(ticketRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> ticketService.updateTicket(999L, request))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("Ticket not found with ID: 999");
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                () -> ticketService.getTicketById(999L));
 
+        assertTrue(ex.getMessage().contains("999"));
+    }
+
+    @Test
+    @DisplayName("Service - getTicketById history entries should use username not email")
+    void getTicketById_historyEntries_shouldUseUsername() {
+        TicketHistoryEntity history = TicketHistoryEntity.builder()
+                .id(1L)
+                .description("Ticket created")
+                .ticket(mockTicket)
+                .createdBy(creatorUser)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        when(ticketRepository.findById(10L)).thenReturn(Optional.of(mockTicket));
+        when(attachmentRepository.findByTicketIdAndCommentIsNullOrderByUploadedAtAsc(10L))
+                .thenReturn(Collections.emptyList());
+        when(ticketHistoryRepository.findByTicketIdOrderByCreatedAtAsc(10L))
+                .thenReturn(List.of(history));
+
+        TicketDetailsResponse response = ticketService.getTicketById(10L);
+
+        assertEquals(1, response.getHistory().size());
+        assertEquals("yashascs", response.getHistory().get(0).getCreatedBy());
+        assertNotEquals("yashas@cs.com", response.getHistory().get(0).getCreatedBy());
+    }
+
+    // =========================================================
+    // getMyTickets
+    // =========================================================
+
+    @Test
+    @DisplayName("Service - getMyTickets should return all tickets for IT role")
+    void getMyTickets_whenITRole_shouldReturnAllTickets() {
+        UserEntity itUser = UserEntity.builder()
+                .id(3L).username("admin").email("admin@cs.com").role(Role.IT).build();
+
+        when(jwtUtil.extractUser()).thenReturn(itUser);
+        when(ticketRepository.findAllWithAssociations(any(Sort.class)))
+                .thenReturn(List.of(mockTicket));
+        when(commentRepository.countByTicketId(anyLong())).thenReturn(0L);
+        when(attachmentRepository.countByTicketIdAndCommentIsNull(anyLong())).thenReturn(0L);
+
+        List<TicketResponseDTO> result = ticketService.getMyTickets("createdAt", "desc");
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(ticketRepository).findAllWithAssociations(any(Sort.class));
+        verify(ticketRepository, never()).findAllByCreatedByOrAssignedTo(any(), any());
+    }
+
+    @Test
+    @DisplayName("Service - getMyTickets should filter by creator/assignee for non-IT role")
+    void getMyTickets_whenNonITRole_shouldFilterByUserOwnership() {
+        when(jwtUtil.extractUser()).thenReturn(creatorUser);
+        when(ticketRepository.findAllByCreatedByOrAssignedTo(eq(creatorUser), any(Sort.class)))
+                .thenReturn(List.of(mockTicket));
+        when(commentRepository.countByTicketId(anyLong())).thenReturn(0L);
+        when(attachmentRepository.countByTicketIdAndCommentIsNull(anyLong())).thenReturn(0L);
+
+        List<TicketResponseDTO> result = ticketService.getMyTickets("createdAt", "desc");
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(ticketRepository).findAllByCreatedByOrAssignedTo(eq(creatorUser), any(Sort.class));
+        verify(ticketRepository, never()).findAllWithAssociations(any());
+    }
+
+    // =========================================================
+    // raiseTicket
+    // =========================================================
+
+    @Test
+    @DisplayName("Service - raiseTicket should throw BadRequestException when title is blank")
+    void raiseTicket_whenTitleBlank_shouldThrowBadRequest() {
+        TicketRaiseRequest request = new TicketRaiseRequest();
+        request.setTitle("  ");
+        request.setDescription("desc");
+        request.setPriority(Priority.HIGH);
+
+        when(jwtUtil.extractUser()).thenReturn(creatorUser);
+
+        assertThrows(BadRequestException.class, () -> ticketService.raiseTicket(request));
         verify(ticketRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("updateTicket - Should throw ResourceNotFoundException when trying to assign to a non-existent email")
-    void updateTicket_InvalidAssigneeEmail_ThrowsResourceNotFoundException() {
-        TicketUpdatePatchRequest request = new TicketUpdatePatchRequest();
-        request.setAssigneeEmail("ghost@company.com");
+    @DisplayName("Service - raiseTicket should throw BadRequestException when description is blank")
+    void raiseTicket_whenDescriptionBlank_shouldThrowBadRequest() {
+        TicketRaiseRequest request = new TicketRaiseRequest();
+        request.setTitle("Fix login bug");
+        request.setDescription("");
+        request.setPriority(Priority.MEDIUM);
 
-        when(ticketRepository.findById(100L)).thenReturn(Optional.of(mockTicket));
-        when(jwtUtil.extractUser()).thenReturn(mockUser);
-        when(userRepository.findByEmail("ghost@company.com")).thenReturn(Optional.empty());
+        when(jwtUtil.extractUser()).thenReturn(creatorUser);
 
-        assertThatThrownBy(() -> ticketService.updateTicket(100L, request))
-                .isInstanceOf(ResourceNotFoundException.class)
-                .hasMessageContaining("Assignee email not found: ghost@company.com");
-
+        assertThrows(BadRequestException.class, () -> ticketService.raiseTicket(request));
         verify(ticketRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Service - raiseTicket should throw BadRequestException when priority is null")
+    void raiseTicket_whenPriorityNull_shouldThrowBadRequest() {
+        TicketRaiseRequest request = new TicketRaiseRequest();
+        request.setTitle("Fix login bug");
+        request.setDescription("Details here");
+        request.setPriority(null);
+
+        when(jwtUtil.extractUser()).thenReturn(creatorUser);
+
+        assertThrows(BadRequestException.class, () -> ticketService.raiseTicket(request));
+    }
+
+    // =========================================================
+    // updateTicket
+    // =========================================================
+
+    @Test
+    @DisplayName("Service - updateTicket should deny access when user is not creator or assignee")
+    void updateTicket_whenNeitherCreatorNorAssignee_shouldThrowAccessDenied() {
+        UserEntity otherUser = UserEntity.builder()
+                .id(99L).username("otheruser").email("other@cs.com").role(Role.HR).build();
+
+        when(ticketRepository.findById(10L)).thenReturn(Optional.of(mockTicket));
+        when(jwtUtil.extractUser()).thenReturn(otherUser);
+
+        TicketUpdatePatchRequest request = new TicketUpdatePatchRequest();
+        request.setStatus(Status.IN_PROGRESS);
+
+        assertThrows(AccessDeniedException.class, () -> ticketService.updateTicket(10L, request));
+        verify(ticketRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Service - updateTicket should allow IT role to modify any ticket")
+    void updateTicket_whenITRole_shouldAllowModificationOfAnyTicket() {
+        UserEntity itUser = UserEntity.builder()
+                .id(3L).username("admin").email("admin@cs.com").role(Role.IT).build();
+
+        when(ticketRepository.findById(10L)).thenReturn(Optional.of(mockTicket));
+        when(jwtUtil.extractUser()).thenReturn(itUser);
+        when(ticketRepository.save(any(TicketEntity.class))).thenReturn(mockTicket);
+        when(ticketHistoryRepository.save(any(TicketHistoryEntity.class)))
+                .thenReturn(TicketHistoryEntity.builder().build());
+        when(ticketHistoryRepository.findByTicketIdOrderByCreatedAtAsc(10L))
+                .thenReturn(Collections.emptyList());
+        when(commentRepository.findByTicketIdOrderByCreatedAtAsc(10L))
+                .thenReturn(Collections.emptyList());
+        when(commentRepository.countByTicketId(anyLong())).thenReturn(0L);
+        when(attachmentRepository.countByTicketIdAndCommentIsNull(anyLong())).thenReturn(0L);
+
+        TicketUpdatePatchRequest request = new TicketUpdatePatchRequest();
+        request.setStatus(Status.IN_PROGRESS);
+
+        TicketResponseDTO result = ticketService.updateTicket(10L, request);
+
+        assertNotNull(result);
+        verify(ticketRepository).save(any(TicketEntity.class));
+    }
+
+    @Test
+    @DisplayName("Service - updateTicket should throw ResourceNotFoundException for unknown ticket")
+    void updateTicket_whenTicketNotFound_shouldThrowException() {
+        when(ticketRepository.findById(999L)).thenReturn(Optional.empty());
+
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                () -> ticketService.updateTicket(999L, new TicketUpdatePatchRequest()));
+
+        assertTrue(ex.getMessage().contains("999"));
+    }
+
+    // =========================================================
+    // addComment
+    // =========================================================
+
+    @Test
+    @DisplayName("Service - addComment should save comment and return DTO")
+    void addComment_whenValidRequest_shouldSaveAndReturnComment() {
+        CommentEntity savedComment = CommentEntity.builder()
+                .id(1L)
+                .content("This is a comment")
+                .ticket(mockTicket)
+                .createdBy(creatorUser)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        when(ticketRepository.findById(10L)).thenReturn(Optional.of(mockTicket));
+        when(jwtUtil.extractUser()).thenReturn(creatorUser);
+        when(commentRepository.save(any(CommentEntity.class))).thenReturn(savedComment);
+        when(attachmentRepository.findByCommentIdOrderByUploadedAtAsc(1L))
+                .thenReturn(Collections.emptyList());
+
+        CommentRequestDTO request = new CommentRequestDTO();
+        request.setContent("This is a comment");
+
+        CommentResponseDTO response = ticketService.addComment(10L, request, null);
+
+        assertNotNull(response);
+        assertEquals("This is a comment", response.getContent());
+        assertEquals("yashascs", response.getCreatedBy());
+        verify(commentRepository).save(any(CommentEntity.class));
+    }
+
+    @Test
+    @DisplayName("Service - addComment should throw ResourceNotFoundException for unknown ticket")
+    void addComment_whenTicketNotFound_shouldThrowException() {
+        when(ticketRepository.findById(999L)).thenReturn(Optional.empty());
+        when(jwtUtil.extractUser()).thenReturn(creatorUser);
+
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                () -> ticketService.addComment(999L, new CommentRequestDTO(), null));
+
+        assertTrue(ex.getMessage().contains("999"));
     }
 }

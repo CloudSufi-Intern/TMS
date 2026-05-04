@@ -125,6 +125,34 @@ class EmailNotificationServiceTest {
     }
 
     /**
+     * Tests that new ticket notifications are sent to all IT users.
+     */
+    @Test
+    @DisplayName("New Ticket - Should send one email per IT user")
+    void sendNewTicketNotification_SendsOneEmailPerItUser() {
+        UserEntity it1 = UserEntity.builder().username("IT1").email("it1@company.com").build();
+        UserEntity it2 = UserEntity.builder().username("IT2").email("it2@company.com").build();
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
+
+        emailNotificationService.sendNewTicketNotification(mockTicket, List.of(it1, it2));
+
+        verify(mailSender, times(2)).createMimeMessage();
+        verify(mailSender, times(2)).send(any(MimeMessage.class));
+    }
+
+    /**
+     * Tests that no emails are sent when there are no IT users.
+     */
+    @Test
+    @DisplayName("New Ticket - Should send no emails when IT user list is empty")
+    void sendNewTicketNotification_EmptyItUsers_SendsNoEmails() {
+        emailNotificationService.sendNewTicketNotification(mockTicket, Collections.emptyList());
+
+        verify(mailSender, never()).createMimeMessage();
+        verify(mailSender, never()).send(any(MimeMessage.class));
+    }
+
+    /**
      * Tests the fault tolerance of the email service.
      * Simulates an SMTP timeout or connection failure and ensures the exception
      * is caught internally, allowing the main application flow to continue uninterrupted.

@@ -92,6 +92,33 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles Spring's MaxUploadSizeExceededException — fired when a multipart
+     * upload busts {@code spring.servlet.multipart.max-file-size}. Returns 400.
+     */
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponseDTO> handleMaxUploadSize(
+            org.springframework.web.multipart.MaxUploadSizeExceededException ex,
+            HttpServletRequest request) {
+        log.warn("MaxUploadSizeExceededException handled: {}", ex.getMessage());
+        return new ResponseEntity<>(createErrorResponse(
+                "Attachment too large. The maximum allowed size is 16 MB.",
+                HttpStatus.BAD_REQUEST, request), HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Handles Spring Security AccessDeniedException — caller is authenticated
+     * but lacks permission. Returns 403.
+     */
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ErrorResponseDTO> handleAccessDenied(
+            org.springframework.security.access.AccessDeniedException ex,
+            HttpServletRequest request) {
+        log.warn("AccessDeniedException handled: {}", ex.getMessage());
+        return new ResponseEntity<>(createErrorResponse(
+                ex.getMessage(), HttpStatus.FORBIDDEN, request), HttpStatus.FORBIDDEN);
+    }
+
+    /**
      * Fallback handler for any unexpected exception, returning 500 Internal Server Error status
      *
      * @param ex        The intercepted generic exception

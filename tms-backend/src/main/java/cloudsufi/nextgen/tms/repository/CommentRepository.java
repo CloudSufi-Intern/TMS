@@ -8,10 +8,15 @@ import java.util.List;
 
 /**
  * Repository for ticket comments.
- * @author Priyanshu Gupta
  */
 @Repository
 public interface CommentRepository extends JpaRepository<CommentEntity, Long> {
-    List<CommentEntity> findByTicket_IdOrderByCreatedAtDesc(Long ticketId);
-    long countByTicket_Id(Long ticketId);
+
+    List<CommentEntity> findByTicketIdOrderByCreatedAtAsc(Long ticketId);
+
+    List<CommentEntity> findByTicketIdOrderByCreatedAtDesc(Long ticketId);
+
+    List<CommentEntity> findByTicketIdAndCreatedByUsernameOrderByCreatedAtAsc(Long ticketId, String username);
+
+    long countByTicketId(Long ticketId);
 }

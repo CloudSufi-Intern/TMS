@@ -21,6 +21,10 @@ vi.mock('../../services/AuthService', () => ({
   signUp: vi.fn(),
 }));
 
+vi.mock('../../utils/auth', () => ({
+  isLoggedIn: vi.fn().mockReturnValue(false),
+}));
+
 import { signUp } from '../../services/AuthService';
 
 const renderSignup = () =>
@@ -31,7 +35,7 @@ const renderSignup = () =>
   );
 
 const fillValidForm = () => {
-  fireEvent.change(screen.getByPlaceholderText('John Doe'), {
+  fireEvent.change(screen.getByPlaceholderText('Jane Smith'), {
     target: { value: 'yashascs' },
   });
   fireEvent.change(screen.getByPlaceholderText('you@company.com'), {
@@ -50,6 +54,7 @@ describe('Signup Page', () => {
   beforeEach(() => {
     mockNavigate.mockReset();
     signUp.mockReset();
+    localStorage.clear();
   });
 
   afterEach(() => {
@@ -63,7 +68,7 @@ describe('Signup Page', () => {
 
     renderSignup();
     fillValidForm();
-    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => {
       expect(signUp).toHaveBeenCalledWith({
@@ -71,7 +76,7 @@ describe('Signup Page', () => {
         email: 'yashas@cs.com',
         password: 'password123',
         phoneNo: '9876543210',
-        role: 'IT',
+        role: 'ENGINEERING',
       });
       expect(mockNavigate).toHaveBeenCalledWith('/login');
     });
@@ -82,7 +87,7 @@ describe('Signup Page', () => {
   it('should show error and not call API when email format is invalid', async () => {
     renderSignup();
 
-    fireEvent.change(screen.getByPlaceholderText('John Doe'), {
+    fireEvent.change(screen.getByPlaceholderText('Jane Smith'), {
       target: { value: 'yashascs' },
     });
     fireEvent.change(screen.getByPlaceholderText('you@company.com'), {
@@ -97,7 +102,7 @@ describe('Signup Page', () => {
 
     // jsdom runs constraint validation on submit which blocks the React handler
     // when type="email" has an invalid value. Stub reportValidity to bypass it.
-    const form = screen.getByRole('button', { name: /sign up/i }).closest('form');
+    const form = screen.getByRole('button', { name: /create account/i }).closest('form');
     form.reportValidity = () => true;
 
     fireEvent.submit(form);
@@ -112,7 +117,7 @@ describe('Signup Page', () => {
   it('should show error and not call API when phone number is too short', async () => {
     renderSignup();
 
-    fireEvent.change(screen.getByPlaceholderText('John Doe'), {
+    fireEvent.change(screen.getByPlaceholderText('Jane Smith'), {
       target: { value: 'yashascs' },
     });
     fireEvent.change(screen.getByPlaceholderText('you@company.com'), {
@@ -124,10 +129,10 @@ describe('Signup Page', () => {
     fireEvent.change(screen.getByPlaceholderText('••••••••'), {
       target: { value: 'password123' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Please enter a valid phone number (10-15 digits).')).toBeInTheDocument();
+      expect(screen.getByText('Phone number must be at least 10 digits.')).toBeInTheDocument();
     });
 
     expect(signUp).not.toHaveBeenCalled();
@@ -140,7 +145,7 @@ describe('Signup Page', () => {
 
     renderSignup();
     fillValidForm();
-    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => {
       expect(screen.getByText('User with this email already exists.')).toBeInTheDocument();
@@ -154,7 +159,7 @@ describe('Signup Page', () => {
 
     renderSignup();
     fillValidForm();
-    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => {
       expect(screen.getByText('phoneNo: must not be blank')).toBeInTheDocument();
@@ -166,7 +171,7 @@ describe('Signup Page', () => {
 
     renderSignup();
     fillValidForm();
-    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => {
       expect(
@@ -182,7 +187,7 @@ describe('Signup Page', () => {
 
     renderSignup();
     fillValidForm();
-    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => {
       expect(screen.getByText('User with this email already exists.')).toBeInTheDocument();
@@ -201,7 +206,7 @@ describe('Signup Page', () => {
 
     renderSignup();
     fillValidForm();
-    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => {
       const btn = screen.getByRole('button', { name: /creating account/i });
@@ -216,7 +221,7 @@ describe('Signup Page', () => {
 
     renderSignup();
     fillValidForm();
-    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => {
       const payload = signUp.mock.calls[0][0];

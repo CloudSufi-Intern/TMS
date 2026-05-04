@@ -8,6 +8,7 @@ import cloudsufi.nextgen.tms.dto.TicketUpdatePatchRequest;
 import cloudsufi.nextgen.tms.entity.*;
 import cloudsufi.nextgen.tms.enums.ApprovalStatus;
 import cloudsufi.nextgen.tms.enums.FileType;
+import cloudsufi.nextgen.tms.enums.Role;
 import cloudsufi.nextgen.tms.enums.Status;
 import cloudsufi.nextgen.tms.exception.AuthenticationException;
 import cloudsufi.nextgen.tms.exception.BadRequestException;
@@ -17,6 +18,7 @@ import cloudsufi.nextgen.tms.repository.AttachmentRepository;
 import cloudsufi.nextgen.tms.repository.TicketHistoryRepository;
 import cloudsufi.nextgen.tms.repository.TicketRepository;
 import cloudsufi.nextgen.tms.repository.UserRepository;
+import cloudsufi.nextgen.tms.dto.AttachmentMetadataDTO;
 import cloudsufi.nextgen.tms.dto.CommentRequestDTO;
 import cloudsufi.nextgen.tms.dto.CommentResponseDTO;
 import cloudsufi.nextgen.tms.entity.CommentEntity;
@@ -27,6 +29,8 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -70,6 +74,16 @@ public class TicketService {
     public TicketRaiseResponse raiseTicket(TicketRaiseRequest request) {
         log.info("Initiating ticket creation process for title: '{}'", request.getTitle());
 
+        if (request.getTitle() == null || request.getTitle().isBlank()) {
+            throw new BadRequestException("Ticket title cannot be blank.");
+        }
+        if (request.getDescription() == null || request.getDescription().isBlank()) {
+            throw new BadRequestException("Ticket description cannot be blank.");
+        }
+        if (request.getPriority() == null) {
+            throw new BadRequestException("Ticket priority is required.");
+        }
+
         TicketEntity savedTicket = saveTicketEntity(request);
         saveTicketHistoryEntity(savedTicket);
 
@@ -83,6 +97,9 @@ public class TicketService {
         if (attachments != null && !attachments.isEmpty()) {
             saveAttachments(attachments, savedTicket, savedTicket.getCreatedBy());
         }
+
+        List<UserEntity> itUsers = userRepository.findAllByRole(Role.IT);
+        emailNotificationService.sendNewTicketNotification(savedTicket, itUsers);
 
         log.info("Ticket successfully raised with ID: {}", savedTicket.getId());
 
@@ -189,6 +206,7 @@ public class TicketService {
             try {
                 AttachmentEntity attachmentEntity = AttachmentEntity.builder()
                         .file(file.getBytes())
+                        .fileName(file.getOriginalFilename())
                         .fileType(determinedFileType)
                         .ticket(ticket)
                         .uploadedBy(uploader)
@@ -203,6 +221,33 @@ public class TicketService {
             }
         });
         log.info("Attachment processing completed.");
+    }
+
+    private void saveCommentAttachments(List<MultipartFile> attachments, TicketEntity ticket, CommentEntity comment, UserEntity uploader) {
+        attachments.forEach(file -> {
+            if (file.isEmpty()) throw new BadRequestException("Attached file '" + file.getOriginalFilename() + "' cannot be empty.");
+            String contentType = file.getContentType();
+            FileType determinedFileType;
+            if (contentType != null && contentType.startsWith("image/")) {
+                determinedFileType = FileType.IMAGE;
+            } else if ("application/pdf".equalsIgnoreCase(contentType)) {
+                determinedFileType = FileType.PDF;
+            } else {
+                throw new BadRequestException("Unsupported file type: " + contentType + ". Only images and PDFs are allowed.");
+            }
+            try {
+                attachmentRepository.save(AttachmentEntity.builder()
+                        .file(file.getBytes())
+                        .fileName(file.getOriginalFilename())
+                        .fileType(determinedFileType)
+                        .ticket(ticket)
+                        .comment(comment)
+                        .uploadedBy(uploader)
+                        .build());
+            } catch (java.io.IOException e) {
+                throw new FileProcessingException("Failed to read attachment data for file: " + file.getOriginalFilename());
+            }
+        });
     }
 
 
@@ -236,7 +281,7 @@ public class TicketService {
      * Helper method to fetch and map attachment BLOBs to safe metadata DTOs.
      */
     private List<TicketDetailsResponse.AttachmentMetadata> fetchAndMapAttachments(Long ticketId) {
-        return attachmentRepository.findByTicket_IdOrderByUploadedAtDesc(ticketId).stream()
+        return attachmentRepository.findByTicketIdAndCommentIsNullOrderByUploadedAtAsc(ticketId).stream()
                 .map(attr -> TicketDetailsResponse.AttachmentMetadata.builder()
                         .id(attr.getId())
                         .fileType(attr.getFileType() != null ? attr.getFileType().name() : "UNKNOWN")
@@ -249,11 +294,11 @@ public class TicketService {
      * Helper method to fetch and map chronological audit logs.
      */
     private List<TicketDetailsResponse.TicketHistory> fetchAndMapHistory(Long ticketId) {
-        return ticketHistoryRepository.findByTicket_IdOrderByCreatedAtDesc(ticketId).stream()
+        return ticketHistoryRepository.findByTicketIdOrderByCreatedAtAsc(ticketId).stream()
                 .map(logEntity -> TicketDetailsResponse.TicketHistory.builder()
                         .id(logEntity.getId())
                         .description(logEntity.getDescription())
-                        .createdBy(logEntity.getCreatedBy() != null ? logEntity.getCreatedBy().getEmail() : "System")
+                        .createdBy(logEntity.getCreatedBy() != null ? logEntity.getCreatedBy().getUsername() : "System")
                         .createdAt(logEntity.getCreatedAt())
                         .build())
                 .toList();
@@ -274,8 +319,8 @@ public class TicketService {
                 .priority(ticket.getPriority())
                 .status(ticket.getStatus())
                 .sla(ticket.getSla())
-                .createdBy(ticket.getCreatedBy() != null ? ticket.getCreatedBy().getEmail() : "Unknown")
-                .assignedTo(ticket.getAssignedTo() != null ? ticket.getAssignedTo().getEmail() : "Unassigned")
+                .createdBy(ticket.getCreatedBy() != null ? ticket.getCreatedBy().getUsername() : "Unknown")
+                .assignedTo(ticket.getAssignedTo() != null ? ticket.getAssignedTo().getUsername() : "Unassigned")
                 .isApprovalRequired(ticket.isApprovalRequired())
                 .approver(ticket.getApprover() != null ? ticket.getApprover().getEmail() : "N/A")
                 .approvalStatus(ticket.getApprovalStatus())
@@ -302,12 +347,18 @@ public class TicketService {
      *                                   a user record in the database.
      * @author Yashas Yadav
      */
-    public List<TicketResponseDTO> getMyTickets() {
+    public List<TicketResponseDTO> getMyTickets(String sortBy, String sortDir) {
 
         UserEntity user = jwtUtil.extractUser();
         log.info("Fetching dashboard tickets for user: {}", user.getEmail());
 
-        List<TicketEntity> tickets = ticketRepository.findAllByCreatedByOrAssignedTo(user);
+        Sort.Direction direction = "desc".equalsIgnoreCase(sortDir) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        Sort sort = Sort.by(direction, sortBy != null ? sortBy : "createdAt");
+
+        boolean isIT = user.getRole() != null && user.getRole().name().equals("IT");
+        List<TicketEntity> tickets = isIT
+                ? ticketRepository.findAllWithAssociations(sort)
+                : ticketRepository.findAllByCreatedByOrAssignedTo(user, sort);
         log.info("Found {} ticket(s) for user: {}", tickets.size(), user.getEmail());
 
         return tickets.stream()
@@ -339,8 +390,8 @@ public class TicketService {
                 .assignedAt(ticket.getAssignedAt())
                 .createdAt(ticket.getCreatedAt())
                 .updatedAt(ticket.getUpdatedAt())
-                .commentCount((int)commentRepository.countByTicket_Id(ticket.getId()))
-                .attachmentCount((int)attachmentRepository.countByTicket_Id(ticket.getId()))
+                .commentCount((int)commentRepository.countByTicketId(ticket.getId()))
+                .attachmentCount((int)attachmentRepository.countByTicketIdAndCommentIsNull(ticket.getId()))
                 .build();
     }
 
@@ -363,6 +414,16 @@ public class TicketService {
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with ID: " + ticketId));
 
         UserEntity currentUser = jwtUtil.extractUser();
+
+        boolean isIT = currentUser.getRole() != null && "IT".equals(currentUser.getRole().name());
+        boolean isCreator = ticket.getCreatedBy() != null
+                && java.util.Objects.equals(ticket.getCreatedBy().getId(), currentUser.getId());
+        boolean isAssignee = ticket.getAssignedTo() != null
+                && java.util.Objects.equals(ticket.getAssignedTo().getId(), currentUser.getId());
+        if (!isIT && !isCreator && !isAssignee) {
+            throw new AccessDeniedException("You don't have permission to update this ticket.");
+        }
+
         StringBuilder auditLogBuilder = new StringBuilder("Ticket updated: ");
         boolean isUpdated = false;
         boolean statusChanged = false;
@@ -410,8 +471,8 @@ public class TicketService {
                     .build();
             ticketHistoryRepository.save(historyLog);
 
-            List<TicketHistoryEntity> history = ticketHistoryRepository.findByTicket_IdOrderByCreatedAtDesc(ticketId);
-            List<CommentEntity> comments = commentRepository.findByTicket_IdOrderByCreatedAtDesc(ticketId);
+            List<TicketHistoryEntity> history = ticketHistoryRepository.findByTicketId(ticketId);
+            List<CommentEntity> comments = commentRepository.findByTicketIdOrderByCreatedAtAsc(ticketId);
 
             if (statusChanged) {
                 emailNotificationService.sendStatusChangeNotification(
@@ -442,7 +503,7 @@ public class TicketService {
          * @return The saved comment as a response DTO.
          * @author Priyanshu Gupta
          */
-        public CommentResponseDTO addComment (Long ticketId, CommentRequestDTO request){
+        public CommentResponseDTO addComment (Long ticketId, CommentRequestDTO request, List<MultipartFile> attachments){
             log.info("Adding comment to Ticket ID: {}", ticketId);
 
             TicketEntity ticket = ticketRepository.findById(ticketId)
@@ -459,6 +520,10 @@ public class TicketService {
             CommentEntity savedComment = commentRepository.save(comment);
             log.info("Comment saved successfully for Ticket ID: {}", ticketId);
 
+            if (attachments != null && !attachments.isEmpty()) {
+                saveCommentAttachments(attachments, ticket, savedComment, currentUser);
+            }
+
             return toCommentResponseDTO(savedComment);
         }
 
@@ -470,15 +535,23 @@ public class TicketService {
  * @return List of comments as response DTOs.
  * @author Priyanshu Gupta
  */
-        public List<CommentResponseDTO> getComments(Long ticketId) {
+        public List<CommentResponseDTO> getComments(Long ticketId, String sortDir, String author) {
             log.info("Fetching comments for Ticket ID: {}", ticketId);
 
             if (!ticketRepository.existsById(ticketId)) {
                 throw new ResourceNotFoundException("Ticket not found with ID: " + ticketId);
             }
 
-            return commentRepository.findByTicket_IdOrderByCreatedAtDesc(ticketId)
-                    .stream()
+            List<CommentEntity> comments;
+            if (author != null && !author.isBlank()) {
+                comments = commentRepository.findByTicketIdAndCreatedByUsernameOrderByCreatedAtAsc(ticketId, author);
+            } else if ("desc".equalsIgnoreCase(sortDir)) {
+                comments = commentRepository.findByTicketIdOrderByCreatedAtDesc(ticketId);
+            } else {
+                comments = commentRepository.findByTicketIdOrderByCreatedAtAsc(ticketId);
+            }
+
+            return comments.stream()
                     .map(this::toCommentResponseDTO)
                     .toList();
         }
@@ -487,11 +560,23 @@ public class TicketService {
  * Maps a CommentEntity to a CommentResponseDTO.
  */
         private CommentResponseDTO toCommentResponseDTO(CommentEntity comment) {
+            List<AttachmentMetadataDTO> attachmentDTOs = attachmentRepository
+                    .findByCommentIdOrderByUploadedAtAsc(comment.getId())
+                    .stream()
+                    .map(a -> AttachmentMetadataDTO.builder()
+                            .id(a.getId())
+                            .fileName(a.getFileName())
+                            .fileType(a.getFileType() != null ? a.getFileType().name() : "UNKNOWN")
+                            .fileSizeInBytes(a.getFile() != null ? a.getFile().length : 0)
+                            .build())
+                    .toList();
+
             return CommentResponseDTO.builder()
                     .id(comment.getId())
                     .content(comment.getContent())
                     .createdBy(comment.getCreatedBy().getUsername())
                     .createdAt(comment.getCreatedAt())
+                    .attachments(attachmentDTOs)
                     .build();
         }
     }

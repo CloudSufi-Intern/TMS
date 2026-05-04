@@ -1,91 +1,86 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getTicketById, updateTicket } from '../services/TicketService';
+import {
+  getTicketById,
+  updateTicket,
+  getComments,
+  addComment as apiAddComment,
+} from '../services/TicketService';
 import { downloadAttachment } from '../services/AttachmentService';
 import { searchUsers } from '../services/UserService';
-import '../ticketDetails.css';
+import AppShell from '../components/AppShell';
+import Badge from '../components/Badge';
 
-/**
- * TicketDetail page — fetches full ticket info from GET /api/tickets/{id}.
- * Shows ticket metadata, history audit log, and attachment metadata.
- *
- * @author Smriti Bajpai
- * [API Integration] Replaced context read with real API call — Priyanshu Gupta
- * [Merge] download handler fix — Yashas Yadav
- * [Attachment Update] Integrated downloadAttachment service — Ansh Parnami
- */
+const MAX_BYTES = 16 * 1024 * 1024;
+const STATUS_OPTIONS   = ['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'RESOLVED', 'CLOSED'];
+const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
+
+const inputCls  = 'w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-white disabled:bg-slate-50 disabled:text-slate-400';
+const selectCls = `${inputCls} cursor-pointer`;
+const sectionTitle = 'text-xs font-bold text-slate-500 uppercase tracking-widest mb-3';
+const cardCls = 'bg-white rounded-xl border border-slate-200 p-5 mb-4';
+
 const TicketDetail = () => {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id }   = useParams();
 
-  const [ticket, setTicket] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [ticket, setTicket]         = useState(null);
+  const [loading, setLoading]       = useState(true);
   const [fetchError, setFetchError] = useState('');
 
-  const [comment, setComment] = useState('');
-  const [comments, setComments] = useState([]);
-  const [status, setStatus] = useState('');
+  const [comment, setComment]           = useState('');
+  const [commentFiles, setCommentFiles] = useState([]);
+  const [comments, setComments]         = useState([]);
+  const [commentSortDir, setCommentSortDir]       = useState('asc');
+  const [commentAuthorFilter, setCommentAuthorFilter] = useState('');
+
+  const [status, setStatus]     = useState('');
   const [priority, setPriority] = useState('');
-  const [toast, setToast] = useState({ show: false, message: '' });
   const [attachments, setAttachments] = useState([]);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [isUpdating, setIsUpdating]   = useState(false);
   const [assigneeEmail, setAssigneeEmail] = useState('');
 
-  const [suggestions, setSuggestions] = useState([]);
+  const [suggestions, setSuggestions]     = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [mentionIndex, setMentionIndex] = useState(-1);
+  const [mentionIndex, setMentionIndex]   = useState(-1);
 
-  const userRole = localStorage.getItem('role');
+  const [toast, setToast] = useState({ show: false, message: '', isError: false });
+
+  const userRole  = localStorage.getItem('role');
   const userEmail = localStorage.getItem('email');
-  const isIT = userRole === 'IT';
+  const isIT      = userRole === 'IT';
 
-  useEffect(() => {
-    const fetchTicket = async () => {
-      setLoading(true);
-      setFetchError('');
-      try {
-        const data = await getTicketById(id);
-        setTicket(data);
-        setStatus(data.status || '');
-        setPriority(data.priority || '');
-        setAttachments(data.attachments || []);
-      } catch (err) {
-        setFetchError(err.message || 'Failed to load ticket.');
-      } finally {
-        setLoading(false);
-      }
-    };
-     /**
-     * Fetches all comments for this ticket from the backend.
-     * [Ticket Update]: Replaced local state comments with real API call.
-     * @author Priyanshu Gupta
-     */
-    const fetchComments = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:8080/api/tickets/${id}/comments`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) return;
-        const data = await response.json();
-        setComments(data);
-      } catch (err) {
-        console.error('Failed to fetch comments:', err);
-      }
-    };
-
-
-    fetchTicket();
-    fetchComments();
-  }, [id]);
-
-  /** Shows a toast notification that auto-hides after 2.5s */
-  const showToast = (message) => {
-    setToast({ show: true, message });
-    setTimeout(() => setToast({ show: false, message: '' }), 2500);
+  const showToast = (message, isError = false) => {
+    setToast({ show: true, message, isError });
+    setTimeout(() => setToast({ show: false, message: '', isError: false }), 2500);
   };
 
-  /** Handles ticket assignment to a specific agent email */
+  const fetchTicket = useCallback(async () => {
+    setLoading(true);
+    setFetchError('');
+    try {
+      const data = await getTicketById(id);
+      setTicket(data);
+      setStatus(data.status || '');
+      setPriority(data.priority || '');
+      setAttachments(data.attachments || []);
+    } catch (err) {
+      setFetchError(err.response?.data?.message || err.message || 'Failed to load ticket.');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  const fetchComments = useCallback(async () => {
+    try {
+      const data = await getComments(id, { sortDir: commentSortDir, author: commentAuthorFilter || undefined });
+      setComments(data);
+    } catch { /* non-fatal */ }
+  }, [id, commentSortDir, commentAuthorFilter]);
+
+  useEffect(() => { fetchTicket(); },   [fetchTicket]);
+  useEffect(() => { fetchComments(); }, [fetchComments]);
+
   const handleAssignAgent = async () => {
     if (!assigneeEmail.trim()) return;
     setIsUpdating(true);
@@ -93,235 +88,97 @@ const TicketDetail = () => {
       await updateTicket(id, { assigneeEmail: assigneeEmail.trim() });
       showToast(`Ticket assigned to ${assigneeEmail}`);
       setAssigneeEmail('');
-      const updatedTicket = await getTicketById(id);
-      setTicket(updatedTicket);
-    } catch (error) {
-      console.error("Error assigning agent:", error);
-      showToast(error.message || 'Failed to assign agent');
-    } finally {
-      setIsUpdating(false);
-    }
+      await fetchTicket();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to assign agent.', true);
+    } finally { setIsUpdating(false); }
   };
 
-  /** Handles self-assignment for IT users */
   const handleSelfAssign = async () => {
-    if (!userEmail) {
-      showToast('User email not found. Please log in again.');
-      return;
-    }
+    if (!userEmail) { showToast('User email not found. Please log in again.', true); return; }
     setIsUpdating(true);
     try {
       await updateTicket(id, { assigneeEmail: userEmail });
-      showToast('Ticket assigned to you');
-      const updatedTicket = await getTicketById(id);
-      setTicket(updatedTicket);
-    } catch (error) {
-      console.error("Error self-assigning ticket:", error);
-      showToast(error.message || 'Failed to self-assign ticket');
-    } finally {
-      setIsUpdating(false);
-    }
+      showToast('Ticket assigned to you.');
+      await fetchTicket();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to self-assign.', true);
+    } finally { setIsUpdating(false); }
   };
 
-  /** Closing the ticket and redirecting to the dashboard page */
-  const closeTicketHandler = async () => {
-    try {
-      setIsUpdating(true);
-      await updateTicket(id, { status: 'CLOSED' });
-      showToast('Ticket closed successfully');
-      setTimeout(() => navigate('/dashboard'), 1000);
-    } catch (error) {
-      console.error("Error closing ticket:", error);
-      showToast('Failed to close ticket');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const formatDate = (dt) => {
-    if (!dt) return 'N/A';
-    return new Date(dt).toLocaleString();
-  };
-
-  const formatBytes = (bytes) => {
-    if (!bytes) return '0 KB';
-    return bytes > 1024 * 1024
-      ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-      : `${Math.round(bytes / 1024)} KB`;
-  };
-
-  if (loading) {
-    return (
-      <div className="td-page">
-        <header className="td-header">
-          <button className="td-back-btn" onClick={() => navigate('/dashboard')}>
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Dashboard
-          </button>
-        </header>
-        <div style={{ textAlign: 'center', padding: '80px 24px', color: '#9ca3af' }}>
-          <p style={{ fontSize: '15px' }}>Loading ticket...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (fetchError || !ticket) {
-    return (
-      <div className="td-page">
-        <header className="td-header">
-          <button className="td-back-btn" onClick={() => navigate('/dashboard')}>
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Dashboard
-          </button>
-        </header>
-        <div style={{ textAlign: 'center', padding: '80px 24px', color: '#9ca3af' }}>
-          <p style={{ fontSize: '18px', fontWeight: '600', color: '#111827' }}>
-            {fetchError || 'Ticket not found'}
-          </p>
-          <p style={{ fontSize: '14px', marginTop: '8px' }}>
-            The ticket may not exist or you may not have access.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  /**
-     * Sends a new comment to the backend and updates the local comments list.
-     * [Ticket Update]: Replaced local state update with real API call.
-     * @author Priyanshu Gupta
-     */
-    const handleAddComment = async () => {
-      if (!comment.trim()) return;
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:8080/api/tickets/${id}/comments`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ content: comment.trim() }),
-        });
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          throw new Error(err.message || 'Failed to add comment');
-        }
-        const savedComment = await response.json();
-        setComments((prev) => [savedComment, ...prev]);
-        setComment('');
-        showToast('Comment added successfully');
-      } catch (err) {
-        console.error('Error adding comment:', err);
-        showToast('Failed to add comment');
-      }
-    };
-
-  /** Updates ticket status in backend and locally */
   const handleStatusChange = async (e) => {
     const newStatus = e.target.value;
+    if (newStatus === status) return;
     setIsUpdating(true);
     try {
       await updateTicket(id, { status: newStatus });
       setStatus(newStatus);
-      showToast(`Status updated to "${newStatus}"`);
-
-      // Refresh ticket data to get updated history
-      const updatedTicket = await getTicketById(id);
-      setTicket(updatedTicket);
-    } catch (error) {
-      console.error("Error updating status:", error);
-      showToast('Failed to update status');
-    } finally {
-      setIsUpdating(false);
-    }
+      showToast(`Status updated to "${newStatus.replace(/_/g, ' ')}"`);
+      await fetchTicket();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to update status.', true);
+    } finally { setIsUpdating(false); }
   };
 
-  /** Updates ticket priority in backend and locally */
   const handlePriorityChange = async (e) => {
     const newPriority = e.target.value;
+    if (newPriority === priority) return;
     setIsUpdating(true);
     try {
       await updateTicket(id, { priority: newPriority });
       setPriority(newPriority);
       showToast(`Priority updated to "${newPriority}"`);
-
-      // Refresh ticket data to get updated history
-      const updatedTicket = await getTicketById(id);
-      setTicket(updatedTicket);
-    } catch (error) {
-      console.error("Error updating priority:", error);
-      showToast('Failed to update priority');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  /** Handles file selection — appends to local attachments state */
-  const handleAttachFile = (e) => {
-    const selectedFiles = Array.from(e.target.files);
-    if (!selectedFiles.length) return;
-
-    const newAttachments = selectedFiles.map((file) => ({
-      id: Date.now() + Math.random(),
-      name: file.name,
-      fileSizeInBytes: file.size,
-      fileType: file.type.startsWith('image/') ? 'IMAGE' : 'PDF',
-      localUrl: URL.createObjectURL(file),
-    }));
-
-    setAttachments((prev) => [...newAttachments, ...prev]);
-    showToast(`${selectedFiles.length} file(s) attached successfully`);
-    e.target.value = '';
-  };
-
-  /** Downloads a file — opens local blob URL or fetches from backend */
-  const handleDownload = async (file) => {
-    try {
-      if (file.localUrl) {
-        window.open(file.localUrl, '_blank');
-        return;
-      }
-
-      await downloadAttachment(file.id, file.name);
+      await fetchTicket();
     } catch (err) {
-      console.error(err);
-      showToast('Failed to download file');
+      showToast(err.response?.data?.message || 'Failed to update priority.', true);
+    } finally { setIsUpdating(false); }
+  };
+
+  const closeTicketHandler = async () => {
+    setIsUpdating(true);
+    try {
+      await updateTicket(id, { status: 'CLOSED' });
+      showToast('Ticket closed.');
+      setTimeout(() => navigate('/dashboard'), 1000);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to close ticket.', true);
+    } finally { setIsUpdating(false); }
+  };
+
+  const handleAddComment = async () => {
+    if (!comment.trim() && commentFiles.length === 0) return;
+    try {
+      const saved = await apiAddComment(id, comment.trim(), commentFiles);
+      setComments((prev) => commentSortDir === 'asc' ? [...prev, saved] : [saved, ...prev]);
+      setComment('');
+      setCommentFiles([]);
+      showToast('Comment added.');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to add comment.', true);
     }
+  };
+
+  const handleCommentFileChange = (e) => {
+    const selected = Array.from(e.target.files);
+    const oversize = selected.find((f) => f.size > MAX_BYTES);
+    if (oversize) { showToast(`"${oversize.name}" exceeds 16 MB.`, true); e.target.value = ''; return; }
+    setCommentFiles(selected);
   };
 
   const handleCommentChange = async (e) => {
-    const value = e.target.value;
+    const value     = e.target.value;
     const cursorPos = e.target.selectionStart;
     setComment(value);
-
-    // Detect "@username" pattern before cursor
-    const textBeforeCursor = value.substring(0, cursorPos);
-    const mentionMatch = textBeforeCursor.match(/(^|\s)@(\w*)$/);
-
-    if (mentionMatch) {
-      const query = mentionMatch[2];
+    const before       = value.substring(0, cursorPos);
+    const mentionMatch = before.match(/(^|\s)@(\w*)$/);
+    if (mentionMatch && mentionMatch[2].length >= 2) {
       const matchStart = mentionMatch.index + mentionMatch[1].length;
-
-      // Backend constraint: query must be at least 2 chars
-      if (query.length >= 2) {
-        try {
-          const results = await searchUsers(query);
-          setSuggestions(results);
-          setShowSuggestions(results.length > 0);
-          setMentionIndex(matchStart);
-        } catch (err) {
-          console.error("Error searching users:", err);
-          setShowSuggestions(false);
-        }
-      } else {
-        setShowSuggestions(false);
-      }
+      try {
+        const results = await searchUsers(mentionMatch[2]);
+        setSuggestions(results);
+        setShowSuggestions(results.length > 0);
+        setMentionIndex(matchStart);
+      } catch { setShowSuggestions(false); }
     } else {
       setShowSuggestions(false);
     }
@@ -329,86 +186,116 @@ const TicketDetail = () => {
 
   const selectUser = (username) => {
     const beforeMention = comment.substring(0, mentionIndex);
-    // Find where the current mention text ends (first space or end of string)
-    const restOfString = comment.substring(mentionIndex);
-    const nextSpace = restOfString.indexOf(' ');
-    const afterMention = nextSpace !== -1 ? restOfString.substring(nextSpace) : '';
-
+    const restOfString  = comment.substring(mentionIndex);
+    const nextSpace     = restOfString.indexOf(' ');
+    const afterMention  = nextSpace !== -1 ? restOfString.substring(nextSpace) : '';
     setComment(`${beforeMention}@${username}${afterMention || ' '}`);
     setShowSuggestions(false);
   };
 
   const renderCommentWithMentions = (text) => {
     if (!text) return null;
-
-    const parts = text.split(/(@[a-zA-Z0-9]+(?:\s[a-zA-Z0-9]+)?)/g);
-
-    return parts.map((part, index) => {
-      if (part.startsWith('@')) {
-        return (
-          <span key={index} className="td-mention">
-            {part}
-          </span>
-        );
-      }
-      return part;
-    });
+    return text.split(/(@\w+)/g).map((part, idx) =>
+      part.startsWith('@')
+        ? <span key={idx} className="text-indigo-600 font-semibold">{part}</span>
+        : part
+    );
   };
 
-  return (
-    <div className={`td-page ${isUpdating ? 'td-updating' : ''}`}>
+  const handleDownload = async (file) => {
+    try { await downloadAttachment(file.id, file.fileName || file.name); }
+    catch { showToast('Failed to download file.', true); }
+  };
 
-      {/* TOP NAV */}
-      <header className="td-header">
-        <button className="td-back-btn" onClick={() => navigate('/dashboard')}>
-          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  const formatDate  = (dt) => dt ? new Date(dt).toLocaleString() : 'N/A';
+  const formatBytes = (bytes) => {
+    if (!bytes) return '0 KB';
+    return bytes > 1024 * 1024
+      ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+      : `${Math.round(bytes / 1024)} KB`;
+  };
+
+  const distinctAuthors = Array.from(new Set(comments.map((c) => c.createdBy))).filter(Boolean);
+  const ticketTitle = ticket ? `Ticket #${String(ticket.id).padStart(6, '0')}` : 'Ticket Details';
+
+  if (loading) {
+    return (
+      <AppShell title="Loading...">
+        <div className="flex items-center justify-center py-32">
+          <svg className="w-6 h-6 animate-spin text-indigo-500" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={4} />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (fetchError || !ticket) {
+    return (
+      <AppShell title="Ticket Not Found">
+        <div className="flex flex-col items-center justify-center py-32 text-slate-400">
+          <svg className="w-12 h-12 mb-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-base font-semibold text-slate-600">{fetchError || 'Ticket not found'}</p>
+          <button onClick={() => navigate('/dashboard')} className="mt-4 text-sm text-indigo-600 font-semibold hover:underline">
+            Back to Dashboard
+          </button>
+        </div>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell title={ticketTitle}>
+      {/* Back navigation + ticket ID bar */}
+      <div className="flex items-center gap-4 mb-5">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
-          Back to Dashboard
+          Dashboard
         </button>
-        <span className="td-ticket-id">#{String(ticket.id).padStart(6, '0')}</span>
-      </header>
+        <span className="text-slate-300">/</span>
+        <span className="text-sm font-semibold text-slate-900">{ticketTitle}</span>
+      </div>
 
-      <div className="td-layout">
-
+      <div className="flex flex-col-reverse lg:flex-row gap-5 items-start">
         {/* LEFT COLUMN */}
-        <div className="td-left">
+        <div className="flex-1 min-w-0 space-y-4 w-full">
 
-          {/* Ticket Info Card */}
-          <div className="td-card">
-            <h1 className="td-title">{ticket.title}</h1>
-            <div className="td-badges">
-              <span className={`td-badge td-status-${ticket.status?.toLowerCase()}`}>
-                {ticket.status?.replace(/_/g, ' ')}
-              </span>
-              <span className={`td-badge td-priority-${ticket.priority?.toLowerCase()}`}>
-                {ticket.priority} priority
-              </span>
+          {/* Ticket summary */}
+          <div className={cardCls}>
+            <h1 className="text-lg font-bold text-slate-900 mb-3">{ticket.title}</h1>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Badge type={ticket.status?.toLowerCase()} />
+              <Badge type={ticket.priority?.toLowerCase()} />
             </div>
-            <p className="td-description">{ticket.description}</p>
+            <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{ticket.description}</p>
           </div>
 
-          {/* History Card — real audit log from API */}
-          <div className="td-card">
-            <h2 className="td-section-title">History ({ticket.history?.length || 0})</h2>
-            {(!ticket.history || ticket.history.length === 0) ? (
-              <p style={{ fontSize: '13px', color: '#9ca3af' }}>No history on this ticket.</p>
+          {/* History */}
+          <div className={cardCls}>
+            <h2 className={sectionTitle}>Activity Log ({ticket.history?.length || 0})</h2>
+            {!ticket.history?.length ? (
+              <p className="text-sm text-slate-400">No activity recorded yet.</p>
             ) : (
-              <div className="td-comments-list">
+              <div className="space-y-3">
                 {ticket.history.map((entry) => (
-                  <div className="td-comment" key={entry.id}>
-                    <div className="td-avatar">
-                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round"
-                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
+                  <div key={entry.id} className="flex gap-3">
+                    <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center flex-shrink-0 text-xs font-bold">
+                      {entry.createdBy?.charAt(0)?.toUpperCase() || '?'}
                     </div>
-                    <div className="td-comment-body">
-                      <div className="td-comment-header">
-                        <span className="td-comment-author">{entry.createdBy}</span>
-                        <span className="td-comment-time">{formatDate(entry.createdAt)}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-xs font-semibold text-slate-700">{entry.createdBy}</span>
+                        <span className="text-xs text-slate-400">{formatDate(entry.createdAt)}</span>
                       </div>
-                      <p className="td-comment-text">{entry.description}</p>
+                      <p className="text-sm text-slate-600">{entry.description}</p>
                     </div>
                   </div>
                 ))}
@@ -416,79 +303,107 @@ const TicketDetail = () => {
             )}
           </div>
 
-          {/* Attachments Card */}
-          <div className="td-card">
-            <h2 className="td-section-title">Attachments ({attachments.length})</h2>
+          {/* Attachments */}
+          <div className={cardCls}>
+            <h2 className={sectionTitle}>Attachments ({attachments.length})</h2>
             {attachments.length === 0 ? (
-              <p style={{ fontSize: '13px', color: '#9ca3af' }}>No attachments on this ticket.</p>
+              <p className="text-sm text-slate-400">No attachments on this ticket.</p>
             ) : (
-              <div className="td-attachments">
+              <div className="space-y-2">
                 {attachments.map((file, i) => (
-                  <div className="td-attachment-row" key={file.id ?? i}>
-                    <div className="td-attachment-left">
-                      <div className="td-attachment-icon">
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round"
-                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  <div key={file.id ?? i} className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                         </svg>
                       </div>
-                      <div>
-                        <div className="td-attachment-name">
-                          {file.name || `Attachment #${file.id} (${file.fileType})`}
-                        </div>
-                        <div className="td-attachment-size">{formatBytes(file.fileSizeInBytes)}</div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-slate-900 truncate">{file.fileName || `Attachment #${file.id}`}</div>
+                        <div className="text-xs text-slate-400">{formatBytes(file.fileSizeInBytes)}</div>
                       </div>
                     </div>
                     <button
-                      className="td-download-btn"
                       onClick={() => handleDownload(file)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex-shrink-0"
                     >
-                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round"
-                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
+                      Download
                     </button>
                   </div>
                 ))}
               </div>
             )}
-
           </div>
 
-          {/* Comments Card */}
-          <div className="td-card">
-            <h2 className="td-section-title">Comments ({comments.length})</h2>
-            <div className="td-comments-list">
-              {comments.length === 0 ? (
-                <p style={{ fontSize: '13px', color: '#9ca3af', paddingBottom: '16px' }}>
-                  No comments yet. Be the first to comment.
-                </p>
-              ) : (
-                comments.map((c) => (
-                                  <div className="td-comment" key={c.id}>
-                                    <div className="td-avatar">
-                                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                        <path strokeLinecap="round" strokeLinejoin="round"
-                                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                      </svg>
-                                    </div>
-                                    <div className="td-comment-body">
-                                      <div className="td-comment-header">
-                                        <span className="td-comment-author">{c.createdBy}</span>
-                                        <span className="td-comment-time">{formatDate(c.createdAt)}</span>
-                                      </div>
-                                      <p className="td-comment-text">{renderCommentWithMentions(c.content)}</p>
-                                    </div>
-                                  </div>
-                                ))
-              )}
+          {/* Comments */}
+          <div className={cardCls}>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h2 className={`${sectionTitle} mb-0`}>Comments ({comments.length})</h2>
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={commentSortDir} onChange={(e) => setCommentSortDir(e.target.value)}
+                  className="px-2 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 outline-none bg-white focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="asc">Oldest first</option>
+                  <option value="desc">Newest first</option>
+                </select>
+                <select
+                  value={commentAuthorFilter} onChange={(e) => setCommentAuthorFilter(e.target.value)}
+                  className="px-2 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 outline-none bg-white focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">All authors</option>
+                  {distinctAuthors.map((a) => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
             </div>
-            <div className="td-add-comment">
-              <label className="td-label">Add a comment</label>
-              <div className="td-comment-input-wrap" style={{ position: 'relative' }}>
+
+            {comments.length === 0 ? (
+              <p className="text-sm text-slate-400 mb-4">No comments yet.</p>
+            ) : (
+              <div className="space-y-4 mb-4">
+                {comments.map((c) => (
+                  <div key={c.id} className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                      {c.createdBy?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold text-slate-800">{c.createdBy}</span>
+                        <span className="text-xs text-slate-400">{formatDate(c.createdAt)}</span>
+                      </div>
+                      <p className="text-sm text-slate-700 leading-relaxed">{renderCommentWithMentions(c.content)}</p>
+                      {c.attachments?.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {c.attachments.map((att) => (
+                            <button
+                              key={att.id} onClick={() => handleDownload(att)}
+                              className="flex items-center gap-2 px-3 py-1.5 text-xs text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-100"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                              </svg>
+                              {att.fileName || `Attachment #${att.id}`}
+                              <span className="text-slate-400 ml-1">{formatBytes(att.fileSizeInBytes)}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add comment */}
+            <div className="border-t border-slate-100 pt-4">
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2">Add a Comment</label>
+              <div className="relative">
                 <textarea
-                  className="td-comment-input"
-                  placeholder="Type your comment here (use @ to tag)..."
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors resize-none h-24"
+                  placeholder="Type your comment here... (use @ to mention a team member)"
                   value={comment}
                   onChange={handleCommentChange}
                   onKeyDown={(e) => {
@@ -497,236 +412,168 @@ const TicketDetail = () => {
                   }}
                 />
                 {showSuggestions && suggestions.length > 0 && (
-                  <ul className="mention-dropdown">
+                  <ul className="absolute z-10 bg-white border border-slate-200 rounded-xl shadow-lg mt-1 w-56 overflow-hidden">
                     {suggestions.map((u) => (
-                      <li key={u.id} onClick={() => selectUser(u.username)}>
-                        <span className="mention-avatar">
+                      <li
+                        key={u.id}
+                        onClick={() => selectUser(u.username)}
+                        className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 cursor-pointer"
+                      >
+                        <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center">
                           {u.username[0].toUpperCase()}
-                        </span>
-                        {u.username}
+                        </div>
+                        <span className="text-sm text-slate-700">{u.username}</span>
                       </li>
                     ))}
                   </ul>
                 )}
-                <button className="td-send-btn" onClick={handleAddComment} disabled={isUpdating}>
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                <input type="file" id="commentFileInput" multiple accept=".png,.jpg,.jpeg,.pdf" onChange={handleCommentFileChange} className="hidden" />
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('commentFileInput').click()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                  Attach files
+                </button>
+                {commentFiles.length > 0 && (
+                  <span className="text-xs text-slate-500">{commentFiles.length} file(s) attached</span>
+                )}
+                <div className="flex-1" />
+                <button
+                  onClick={handleAddComment}
+                  disabled={isUpdating || (!comment.trim() && commentFiles.length === 0)}
+                  className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 rounded-lg transition-colors shadow-sm"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                   </svg>
+                  Post Comment
                 </button>
               </div>
             </div>
           </div>
-
         </div>
 
         {/* RIGHT COLUMN */}
-        <div className="td-right">
+        <div className="w-full lg:w-72 flex-shrink-0 space-y-4">
 
-          {/* Update Status Card */}
-          <div className="td-card">
-            <h2 className="td-section-title">Update Status</h2>
-            <select className="td-status-select" value={status} onChange={handleStatusChange} disabled={isUpdating}>
-              <option value="OPEN">Open</option>
-              <option value="IN_PROGRESS">In Progress</option>
-              <option value="ON_HOLD">On Hold</option>
-              <option value="RESOLVED">Resolved</option>
-              <option value="CLOSED">Closed</option>
+          {/* Status */}
+          <div className={cardCls}>
+            <h2 className={sectionTitle}>Status</h2>
+            <select value={status} onChange={handleStatusChange} disabled={isUpdating} className={selectCls}>
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+              ))}
             </select>
           </div>
 
-          {/* Update Priority Card */}
-          <div className="td-card">
-            <h2 className="td-section-title">Update Priority</h2>
-            <select className="td-status-select" value={priority} onChange={handlePriorityChange} disabled={isUpdating}>
-              <option value="LOW">Low</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HIGH">High</option>
-              <option value="URGENT">Urgent</option>
+          {/* Priority */}
+          <div className={cardCls}>
+            <h2 className={sectionTitle}>Priority</h2>
+            <select value={priority} onChange={handlePriorityChange} disabled={isUpdating} className={selectCls}>
+              {PRIORITY_OPTIONS.map((p) => (
+                <option key={p} value={p}>{p.charAt(0) + p.slice(1).toLowerCase()}</option>
+              ))}
             </select>
           </div>
 
-          {/* Assign Agent Card */}
-          <div className="td-card">
-            <h2 className="td-section-title">
+          {/* Assign */}
+          <div className={cardCls}>
+            <h2 className={sectionTitle}>
               {ticket.assignedTo && ticket.assignedTo !== 'Unassigned' ? 'Change Agent' : 'Assign Agent'}
             </h2>
-            
+
             {ticket.assignedTo && ticket.assignedTo !== 'Unassigned' && (
-              <div style={{ marginBottom: '12px', fontSize: '13px', color: '#4b5563' }}>
-                Currently assigned to: <strong style={{ color: '#111827' }}>{ticket.assignedTo}</strong>
+              <div className="flex items-center gap-2 mb-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                  {ticket.assignedTo.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs text-slate-500">Currently assigned to</div>
+                  <div className="text-sm font-semibold text-slate-800 truncate">{ticket.assignedTo}</div>
+                </div>
               </div>
             )}
 
-            {isIT && ticket.assignedTo !== userEmail && (
-              <button 
-                className="td-self-assign-btn" 
-                onClick={handleSelfAssign}
-                disabled={isUpdating}
+            {isIT && (
+              <button
+                onClick={handleSelfAssign} disabled={isUpdating}
+                className="w-full mb-3 py-2 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors"
               >
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
                 Assign to Me
               </button>
             )}
 
             {!isIT && (
-              <div style={{ 
-                marginBottom: '12px', 
-                padding: '10px', 
-                backgroundColor: '#fef2f2', 
-                border: '1px solid #fee2e2', 
-                borderRadius: '8px',
-                fontSize: '12px',
-                color: '#b91c1c',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                Only IT personnel can assign or change agents.
+              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs text-amber-700">Only IT personnel can assign agents.</p>
               </div>
             )}
 
-            <div className="td-assign-input-wrap">
-              <input 
-                type="email" 
-                className="td-assign-input" 
-                placeholder={isIT ? "Agent email..." : "Unauthorized"}
+            <div className="flex gap-2">
+              <input
+                type="email"
+                className={`${inputCls} flex-1`}
+                placeholder={isIT ? 'Agent email...' : 'Unauthorized'}
                 value={assigneeEmail}
                 onChange={(e) => setAssigneeEmail(e.target.value)}
                 disabled={!isIT || isUpdating}
               />
-              <button 
-                className="td-assign-btn" 
+              <button
                 onClick={handleAssignAgent}
                 disabled={!isIT || isUpdating || !assigneeEmail.trim()}
+                className="px-3 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 rounded-lg transition-colors flex-shrink-0"
               >
                 {ticket.assignedTo && ticket.assignedTo !== 'Unassigned' ? 'Update' : 'Assign'}
               </button>
             </div>
           </div>
 
-          {/* Ticket Information Card */}
-
-          <div className="td-card">
-            <h2 className="td-section-title">Ticket Information</h2>
-            <div className="td-info-list">
-
-              <div className="td-info-item">
-                <div className="td-info-icon">
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round"
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
+          {/* Ticket info */}
+          <div className={cardCls}>
+            <h2 className={sectionTitle}>Ticket Information</h2>
+            <div className="space-y-3">
+              {[
+                { label: 'Ticket ID',    value: `#${String(ticket.id).padStart(6, '0')}` },
+                { label: 'Created By',   value: ticket.createdBy || 'Unknown' },
+                { label: 'Assigned To',  value: ticket.assignedTo || 'Unassigned' },
+                { label: 'Created',      value: formatDate(ticket.createdAt) },
+                { label: 'Last Updated', value: formatDate(ticket.updatedAt) },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex justify-between gap-2">
+                  <span className="text-xs text-slate-400 flex-shrink-0">{label}</span>
+                  <span className="text-xs font-medium text-slate-700 text-right break-all">{value}</span>
                 </div>
-                <div>
-                  <div className="td-info-label">Created By</div>
-                  <div className="td-info-email">{ticket.createdBy || 'Unknown'}</div>
-                </div>
-              </div>
-
-              <div className="td-info-item">
-                <div className="td-info-icon">
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round"
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="td-info-label">Assigned To</div>
-                  <div className="td-info-email">{ticket.assignedTo || 'Unassigned'}</div>
-                </div>
-              </div>
-
-              {ticket.isApprovalRequired && (
-                <div className="td-info-item">
-                  <div className="td-info-icon">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round"
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div className="td-info-label">Approver</div>
-                    <div className="td-info-email">{ticket.approver || 'N/A'}</div>
-                    <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-                      {ticket.approvalStatus?.replace(/_/g, ' ')}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="td-info-item">
-                <div className="td-info-icon">
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                    <line x1="16" y1="2" x2="16" y2="6" />
-                    <line x1="8" y1="2" x2="8" y2="6" />
-                    <line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="td-info-label">Created</div>
-                  <div className="td-info-name">{formatDate(ticket.createdAt)}</div>
-                </div>
-              </div>
-
-              <div className="td-info-item">
-                <div className="td-info-icon">
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="td-info-label">Last Updated</div>
-                  <div className="td-info-name">{formatDate(ticket.updatedAt)}</div>
-                </div>
-              </div>
-
-              <div className="td-info-item">
-                <div className="td-info-icon">
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round"
-                      d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="td-info-label">Ticket ID</div>
-                  <div className="td-info-name td-ticket-id-bold">
-                    #{String(ticket.id).padStart(6, '0')}
-                  </div>
-                </div>
-              </div>
-
+              ))}
             </div>
           </div>
-
-          {/* Quick Actions */}
-          <div className="td-card">
-            <h2 className="td-section-title">Quick Actions</h2>
-            <div className="td-actions-list">
-              <button className="td-action-btn td-action-danger" onClick={closeTicketHandler} disabled={isUpdating}>
-                Close Ticket
-              </button>
-            </div>
-          </div>
-
         </div>
       </div>
 
-      {/* Toast notification */}
-      <div className={`td-toast ${toast.show ? 'td-toast-show' : ''}`}>
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
+      {/* Toast */}
+      <div
+        className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium transition-all duration-300 ${
+          toast.show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
+        } ${toast.isError ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'}`}
+      >
+        {toast.isError ? (
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        ) : (
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        )}
         {toast.message}
       </div>
-
-    </div>
+    </AppShell>
   );
 };
 

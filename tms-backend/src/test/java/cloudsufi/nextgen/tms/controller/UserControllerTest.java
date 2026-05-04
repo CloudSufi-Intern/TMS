@@ -6,6 +6,7 @@ import cloudsufi.nextgen.tms.dto.UserSuggestionDTO;
 import cloudsufi.nextgen.tms.entity.UserEntity;
 import cloudsufi.nextgen.tms.enums.Role;
 import cloudsufi.nextgen.tms.exception.BadRequestException;
+import cloudsufi.nextgen.tms.exception.ResourceNotFoundException;
 import cloudsufi.nextgen.tms.repository.UserRepository;
 import cloudsufi.nextgen.tms.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,7 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
@@ -61,6 +62,9 @@ public class UserControllerTest {
     @Test
     @DisplayName("GET /api/user - Should return 400 Bad Request when all search parameters are missing")
     void getUser_whenNoParametersProvided_shouldReturnBadRequest() throws Exception {
+
+        when(userService.getUser(null, null, null))
+                .thenThrow(new BadRequestException("At least one search parameter (id, username, or email) must be provided."));
 
         mockMvc.perform(get("/api/user"))
                 .andExpect(status().isBadRequest())
@@ -184,7 +188,7 @@ public class UserControllerTest {
         request.setUsername("existing_user");
 
         when(userService.updateUser(any(UpdateUserRequestDTO.class)))
-                .thenThrow(new RuntimeException("Username is already taken."));
+                .thenThrow(new BadRequestException("Username is already taken."));
 
         mockMvc.perform(put("/api/user")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -201,7 +205,7 @@ public class UserControllerTest {
         request.setUsername("new_username");
 
         when(userService.updateUser(any(UpdateUserRequestDTO.class)))
-                .thenThrow(new RuntimeException("User not found"));
+                .thenThrow(new ResourceNotFoundException("User not found"));
 
         mockMvc.perform(put("/api/user")
                         .contentType(MediaType.APPLICATION_JSON)

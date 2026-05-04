@@ -15,6 +15,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -114,7 +115,8 @@ public class EmailNotificationService {
 
         sendHtmlEmail(ticket.getCreatedBy().getEmail(), subject, htmlBody);
 
-        if (ticket.getAssignedTo() != null) {
+        if (ticket.getAssignedTo() != null &&
+                !Objects.equals(ticket.getAssignedTo().getEmail(), ticket.getCreatedBy().getEmail())) {
             sendHtmlEmail(ticket.getAssignedTo().getEmail(), subject, htmlBody);
         }
     }
@@ -186,6 +188,53 @@ public class EmailNotificationService {
                 """.formatted(newAssignee.getUsername(), ticket.getId(), ticket.getTitle(), ticket.getDescription(), ticket.getPriority().name(), commentsHtml, historyHtml, ticketUrl);
 
         sendHtmlEmail(newAssignee.getEmail(), subject, assigneeHtmlBody);
+    }
+
+    /**
+     * Notifies all IT users when a new ticket is raised so they can assign it.
+     */
+    @Async
+    public void sendNewTicketNotification(TicketEntity ticket, List<UserEntity> itUsers) {
+        if (itUsers == null || itUsers.isEmpty()) return;
+
+        log.info("Sending new ticket notification to {} IT user(s) for Ticket ID: {}", itUsers.size(), ticket.getId());
+
+        String subject = String.format("New Ticket #%d Needs Assignment: %s", ticket.getId(), ticket.getTitle());
+        String ticketUrl = tmsBaseUrl + "/tickets/" + ticket.getId();
+
+        String htmlBody = """
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: #0056b3; color: white; padding: 15px; text-align: center;">
+                        <h2 style="margin: 0;">New Ticket Requires Assignment</h2>
+                    </div>
+                    <div style="padding: 20px; color: #333;">
+                        <p>A new support ticket has been raised and is awaiting assignment.</p>
+                        <div style="background-color: #f1f1f1; padding: 15px; border-left: 4px solid #0056b3; margin: 15px 0;">
+                            <strong>Ticket ID:</strong> #%d<br>
+                            <strong>Title:</strong> %s<br>
+                            <strong>Description:</strong> %s<br>
+                            <strong>Priority:</strong> %s<br>
+                            <strong>Raised By:</strong> %s
+                        </div>
+                        <p style="margin-top: 25px; text-align: center;">
+                            <a href="%s" style="background-color: #0056b3; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">View &amp; Assign Ticket</a>
+                        </p>
+                    </div>
+                    <div style="background-color: #f4f4f4; padding: 15px; text-align: center; font-size: 12px; color: #777; border-top: 1px solid #ddd;">
+                        &copy; 2026 CloudSufi NextGen TMS. All rights reserved.
+                    </div>
+                </div>
+                """.formatted(
+                ticket.getId(),
+                ticket.getTitle(),
+                ticket.getDescription(),
+                ticket.getPriority().name(),
+                ticket.getCreatedBy().getUsername(),
+                ticketUrl);
+
+        for (UserEntity itUser : itUsers) {
+            sendHtmlEmail(itUser.getEmail(), subject, htmlBody);
+        }
     }
 
     private String formatComments(List<CommentEntity> comments) {
