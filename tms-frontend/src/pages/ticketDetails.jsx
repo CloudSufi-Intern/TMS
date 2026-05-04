@@ -264,9 +264,9 @@ const TicketDetail = () => {
         <span className="text-sm font-semibold text-slate-900">{ticketTitle}</span>
       </div>
 
-      <div className="flex gap-5 items-start">
+      <div className="flex flex-col-reverse lg:flex-row gap-5 items-start">
         {/* LEFT COLUMN */}
-        <div className="flex-1 min-w-0 space-y-4">
+        <div className="flex-1 min-w-0 space-y-4 w-full">
 
           {/* Ticket summary */}
           <div className={cardCls}>
@@ -340,9 +340,9 @@ const TicketDetail = () => {
 
           {/* Comments */}
           <div className={cardCls}>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
               <h2 className={`${sectionTitle} mb-0`}>Comments ({comments.length})</h2>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <select
                   value={commentSortDir} onChange={(e) => setCommentSortDir(e.target.value)}
                   className="px-2 py-1.5 text-xs border border-slate-300 rounded-lg text-slate-600 outline-none bg-white focus:ring-2 focus:ring-indigo-500"
@@ -429,7 +429,7 @@ const TicketDetail = () => {
                 )}
               </div>
 
-              <div className="flex items-center gap-3 mt-2.5">
+              <div className="flex flex-wrap items-center gap-2 mt-2.5">
                 <input type="file" id="commentFileInput" multiple accept=".png,.jpg,.jpeg,.pdf" onChange={handleCommentFileChange} className="hidden" />
                 <button
                   type="button"
@@ -461,7 +461,7 @@ const TicketDetail = () => {
         </div>
 
         {/* RIGHT COLUMN */}
-        <div className="w-72 flex-shrink-0 space-y-4">
+        <div className="w-full lg:w-72 flex-shrink-0 space-y-4">
 
           {/* Status */}
           <div className={cardCls}>

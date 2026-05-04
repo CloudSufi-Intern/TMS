@@ -8,6 +8,7 @@ import cloudsufi.nextgen.tms.dto.TicketUpdatePatchRequest;
 import cloudsufi.nextgen.tms.entity.*;
 import cloudsufi.nextgen.tms.enums.ApprovalStatus;
 import cloudsufi.nextgen.tms.enums.FileType;
+import cloudsufi.nextgen.tms.enums.Role;
 import cloudsufi.nextgen.tms.enums.Status;
 import cloudsufi.nextgen.tms.exception.AuthenticationException;
 import cloudsufi.nextgen.tms.exception.BadRequestException;
@@ -96,6 +97,9 @@ public class TicketService {
         if (attachments != null && !attachments.isEmpty()) {
             saveAttachments(attachments, savedTicket, savedTicket.getCreatedBy());
         }
+
+        List<UserEntity> itUsers = userRepository.findAllByRole(Role.IT);
+        emailNotificationService.sendNewTicketNotification(savedTicket, itUsers);
 
         log.info("Ticket successfully raised with ID: {}", savedTicket.getId());
 
