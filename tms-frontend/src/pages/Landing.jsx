@@ -59,6 +59,15 @@ const capabilities = [
     title: 'Attachments and Comments',
     desc: 'Attach files to tickets and comments, mention team members with @username, and keep all context in one thread.',
   },
+  {
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+    title: 'Role-Based Analytics',
+    desc: 'Interactive charts for ticket volume by status, priority, assignee workload, and weekly trends — scoped to your role automatically.',
+  },
 ];
 
 const steps = [
@@ -76,6 +85,11 @@ const steps = [
     number: '03',
     title: 'Resolve and Close',
     desc: 'The assignee works through the issue, communicates via comments, and marks it Resolved. The creator can confirm and close it.',
+  },
+  {
+    number: '04',
+    title: 'Review Analytics',
+    desc: 'Track ticket trends, workload distribution, and priority breakdowns over time — with data scoped automatically to your role.',
   },
 ];
 
@@ -109,6 +123,8 @@ const DashboardPreview = () => (
         </svg>
       </div>
       <span className="text-xs font-bold text-slate-900">TMS</span>
+      <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">Dashboard</span>
+      <span className="text-xs font-semibold text-slate-400 px-2 py-0.5 rounded">Analytics</span>
       <span className="text-slate-300 text-xs">|</span>
       <span className="text-xs text-slate-500 font-medium">Dashboard</span>
       <div className="flex-1" />
@@ -208,7 +224,7 @@ const Landing = () => {
             </h1>
             <p className="text-base text-slate-500 leading-relaxed mb-8 max-w-md">
               A structured ticket management system for engineering organizations.
-              Submit, assign, track, and resolve issues with a complete audit trail and role-based access control.
+              Submit, assign, track, and resolve issues with a complete audit trail, role-based access control, and built-in analytics.
             </p>
             <div className="flex flex-wrap gap-3 mb-8">
               <Link to="/register" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors text-sm shadow-sm">
@@ -246,7 +262,7 @@ const Landing = () => {
             <h2 className="text-2xl font-bold text-slate-900 mb-3 tracking-tight">How it works</h2>
             <p className="text-slate-500 text-sm max-w-md mx-auto leading-relaxed">A structured three-step process that keeps every issue visible, assigned, and actioned.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {steps.map((s) => (
               <div key={s.number} className="bg-white rounded-xl border border-slate-200 p-6">
                 <div className="w-9 h-9 rounded-lg bg-indigo-600 text-white text-sm font-bold flex items-center justify-center mb-4">

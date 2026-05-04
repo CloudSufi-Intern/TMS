@@ -1,10 +1,11 @@
 import { useRef, useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { removeToken } from '../utils/auth';
 import { getUserDetails } from '../services/UserService';
 
 const AppShell = ({ children, title, onCreateClick }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const userName = localStorage.getItem('userName') || 'User';
   const role     = localStorage.getItem('role') || '';
   const initial  = userName.charAt(0).toUpperCase();
@@ -54,6 +55,29 @@ const AppShell = ({ children, title, onCreateClick }) => {
           </div>
           <span className="text-sm font-semibold text-slate-900 tracking-tight">TMS</span>
         </Link>
+
+        {/* Nav links */}
+        <nav className="flex items-center gap-1 ml-1">
+          {[
+            { label: 'Dashboard', to: '/dashboard' },
+            { label: 'Analytics', to: '/analytics' },
+          ].map(({ label, to }) => {
+            const active = location.pathname === to;
+            return (
+              <Link
+                key={to}
+                to={to}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  active
+                    ? 'bg-indigo-50 text-indigo-700'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                }`}
+              >
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
 
         {/* Divider + page title */}
         {title && (

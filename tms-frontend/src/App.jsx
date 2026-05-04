@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import TicketDetail from './pages/ticketDetails';
+import Analytics from './pages/Analytics';
 import ProtectedRoute from './components/ProtectedRoute';
 import { removeToken } from './utils/auth';
 import { useToast } from './hooks/useToast';
@@ -79,6 +80,9 @@ function App() {
         } />
         <Route path="/tickets/:id" element={
           <ProtectedRoute><TicketDetail /></ProtectedRoute>
+        } />
+        <Route path="/analytics" element={
+          <ProtectedRoute><Analytics /></ProtectedRoute>
         } />
 
         <Route path="*" element={<Navigate to="/" replace />} />
